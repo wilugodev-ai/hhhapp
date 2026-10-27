@@ -4,74 +4,24 @@
   [class.sidebar-collapsed]="collapsed()"
   [class.mobile-open]="mobileMenu()"
 >
-  @if (mobileMenu()) {
-    <button
-      class="sidebar-scrim"
-      aria-label="Close navigation"
-      (click)="mobileMenu.set(false)"
-    ></button>
-  }
-  <aside class="sidebar">
-    <a class="brand" routerLink="/"
-      ><span class="brand-symbol">H<span>↗</span></span
-      ><strong>HHH<span>Healthcare Horizon Hub</span></strong></a
-    >
-    <div class="workspace-picker">
-      <span class="workspace-avatar">{{
-        api.user()?.organization?.slice(0, 1)
-      }}</span>
-      <div>
-        <strong>Organization workspace</strong
-        ><small>{{ api.user()?.organization }}</small>
-      </div>
-      <hhh-icon name="down" />
-    </div>
-    <nav aria-label="Main navigation">
-      @for (item of nav; track item.id) {
-        @if (item.group) {
-          <div class="nav-label">{{ item.group }}</div>
-        }
-        <a
-          [routerLink]="'/app/' + item.id"
-          routerLinkActive="active"
-          [title]="item.label"
-          [attr.aria-current]="section() === item.id ? 'page' : null"
-          ><hhh-icon [name]="item.icon" /><span>{{ item.label }}</span>
-          @if (item.planned) {
-            <i class="planned-dot" title="Planned module"></i>
-          }
-        </a>
-      }
-    </nav>
-    <div class="sidebar-bottom">
-      @if (data()?.isSynthetic || data()?.dataStatus === "mixed") {
-        <div class="demo-card">
-          <hhh-icon name="shield" />
-          <div>
-            <strong>Sample financial data</strong
-            ><small>{{
-              data()?.dataStatus === "mixed"
-                ? "Includes sample source batches"
-                : "Starter data for your workspace"
-            }}</small>
-          </div>
-        </div>
-      }
-      <button
-        class="collapse-button"
-        (click)="collapsed.set(!collapsed())"
-        [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-      >
-        <hhh-icon name="menu" /><span>Collapse sidebar</span>
-      </button>
-    </div>
-  </aside>
+  <hhh-main-navigation
+    [activeSection]="section()"
+    [sampleStatus]="
+      data()?.dataStatus === 'mixed'
+        ? 'mixed'
+        : data()?.isSynthetic
+          ? 'sample'
+          : null
+    "
+  />
   <div class="workspace-main">
     <header class="topbar">
       <div class="breadcrumb">
         <button
           class="icon-button mobile-toggle"
           aria-label="Open navigation"
+          aria-controls="main-sidebar"
+          [attr.aria-expanded]="mobileMenu()"
           (click)="mobileMenu.set(true)"
         >
           <hhh-icon name="menu" /></button

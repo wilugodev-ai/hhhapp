@@ -55,17 +55,36 @@ describe("Session-aware home navigation", () => {
     const user = api.user();
     await harness.navigateByUrl("/app/overview", WorkspaceComponent);
     await harness.fixture.whenStable();
+    const menuLinks = [
+      ...harness.routeNativeElement!.querySelectorAll<HTMLAnchorElement>(
+        'nav[aria-label="Main navigation"] a',
+      ),
+    ].map((link) => link.getAttribute("href"));
     harness
       .routeNativeElement!.querySelector<HTMLAnchorElement>("aside .brand")!
       .click();
     await vi.waitFor(() => expect(router.url).toBe("/"));
     await harness.fixture.whenStable();
     const home = harness.routeNativeElement!;
+    expect(
+      [
+        ...home.querySelectorAll<HTMLAnchorElement>(
+          'nav[aria-label="Main navigation"] a',
+        ),
+      ].map((link) => link.getAttribute("href")),
+    ).toEqual(menuLinks);
+    expect(
+      home
+        .querySelector('nav[aria-label="Main navigation"] a[href="/"]')
+        ?.getAttribute("aria-current"),
+    ).toBe("page");
     expect(home.querySelector(".landing-session")?.textContent).toContain(
       "Current User",
     );
     expect(home.querySelector('a[href="/login"]')).toBeNull();
-    expect(home.querySelectorAll('a[href="/app/overview"]').length).toBe(4);
+    expect(
+      home.querySelectorAll('.landing a[href="/app/overview"]').length,
+    ).toBe(4);
     home
       .querySelector<HTMLAnchorElement>('.landing-nav a[href="/app/overview"]')!
       .click();
@@ -101,6 +120,11 @@ describe("Session-aware home navigation", () => {
     const { api, harness, router } = await render(false);
     await harness.navigateByUrl("/", LandingComponent);
     expect(
+      harness.routeNativeElement!.querySelector(
+        'nav[aria-label="Main navigation"]',
+      ),
+    ).toBeNull();
+    expect(
       harness.routeNativeElement!.querySelector(".landing-session"),
     ).toBeNull();
     expect(
@@ -111,6 +135,88 @@ describe("Session-aware home navigation", () => {
     await harness.navigateByUrl("/app/overview", LoginComponent);
     expect(router.url).toBe("/login");
     expect(api.user()).toBeNull();
+  });
+  it("keeps sidebar collapse state when moving between the workspace and Home", async () => {
+    const { harness, router } = await render();
+    await harness.navigateByUrl("/app/overview", WorkspaceComponent);
+    harness
+      .routeNativeElement!.querySelector<HTMLButtonElement>(
+        '[aria-label="Collapse sidebar"]',
+      )!
+      .click();
+    await harness.fixture.whenStable();
+    harness
+      .routeNativeElement!.querySelector<HTMLAnchorElement>("aside .brand")!
+      .click();
+    await vi.waitFor(() => expect(router.url).toBe("/"));
+    await harness.fixture.whenStable();
+    expect(
+      harness
+        .routeNativeElement!.querySelector(".workspace")
+        ?.classList.contains("sidebar-collapsed"),
+    ).toBe(true);
+    harness
+      .routeNativeElement!.querySelector<HTMLAnchorElement>(
+        'nav[aria-label="Main navigation"] a[href="/app/settings"]',
+      )!
+      .click();
+    await vi.waitFor(() => expect(router.url).toBe("/app/settings"));
+    await harness.fixture.whenStable();
+    expect(
+      harness
+        .routeNativeElement!.querySelector(".workspace")
+        ?.classList.contains("sidebar-collapsed"),
+    ).toBe(true);
+    harness
+      .routeNativeElement!.querySelector<HTMLButtonElement>(
+        '[aria-label="Expand sidebar"]',
+      )!
+      .click();
+    await harness.fixture.whenStable();
+    expect(
+      harness
+        .routeNativeElement!.querySelector(".workspace")
+        ?.classList.contains("sidebar-collapsed"),
+    ).toBe(false);
+  });
+  it("opens the mobile menu on Home, closes it on navigation, and restores focus on Escape", async () => {
+    const { harness, router } = await render();
+    await harness.navigateByUrl("/", LandingComponent);
+    const open = harness.routeNativeElement!.querySelector<HTMLButtonElement>(
+      '[aria-label="Open navigation"]',
+    )!;
+    open.click();
+    await harness.fixture.whenStable();
+    expect(open.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(
+      harness.routeNativeElement!.querySelector(
+        '[aria-label="Close main menu"]',
+      ),
+    );
+    harness
+      .routeNativeElement!.querySelector<HTMLAnchorElement>(
+        'nav[aria-label="Main navigation"] a[href="/app/settings"]',
+      )!
+      .click();
+    await vi.waitFor(() => expect(router.url).toBe("/app/settings"));
+    await harness.fixture.whenStable();
+    const trigger =
+      harness.routeNativeElement!.querySelector<HTMLButtonElement>(
+        '[aria-label="Open navigation"]',
+      )!;
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    trigger.click();
+    await harness.fixture.whenStable();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await harness.fixture.whenStable();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
   });
   it("keeps first-administrator setup available on a new installation", async () => {
     const { api, harness } = await render(false);

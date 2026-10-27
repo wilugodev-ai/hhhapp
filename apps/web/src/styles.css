@@ -256,6 +256,9 @@ strong {
   padding: 29px 16px 15px;
   transition: width 0.2s;
 }
+.sidebar-close {
+  display: none;
+}
 .sidebar .brand {
   color: #f1f6fc;
   padding: 0 10px 25px;
@@ -401,6 +404,9 @@ strong {
     width 0.2s;
 }
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1440,6 +1446,7 @@ th.numeric {
 }
 /* Public experience */
 .landing {
+  container-type: inline-size;
   background: #fff;
   color: #142a43;
 }
@@ -1450,6 +1457,21 @@ th.numeric {
   max-width: 1280px;
   padding: 27px 45px;
   margin: auto;
+}
+.workspace .landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #fff;
+}
+.landing-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.landing-brand-group .mobile-toggle {
+  flex-shrink: 0;
 }
 .landing-nav .brand-symbol {
   width: 42px;
@@ -2083,7 +2105,7 @@ th.numeric {
   padding-left: 6px;
   padding-right: 0;
 }
-.sidebar-collapsed .brand > strong,
+.sidebar-collapsed .sidebar .brand > strong,
 .sidebar-collapsed .workspace-picker,
 .sidebar-collapsed .nav-label,
 .sidebar-collapsed .sidebar nav a > span,
@@ -2333,6 +2355,7 @@ th.numeric {
 @media (max-width: 760px) {
   .sidebar {
     transform: translateX(-100%);
+    visibility: hidden;
     width: 232px;
     transition: transform 0.2s;
   }
@@ -2346,6 +2369,15 @@ th.numeric {
   }
   .mobile-open .sidebar {
     transform: translateX(0);
+    visibility: visible;
+    padding-top: 45px;
+  }
+  .sidebar-close {
+    display: flex;
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    color: #dce7f1;
   }
   .sidebar-scrim {
     display: block;
@@ -2805,6 +2837,53 @@ th.numeric {
     display: flex;
   }
   .collapse-button {
+    display: none;
+  }
+}
+@container (max-width: 1000px) {
+  .landing-session,
+  .landing-links > a:not(.btn) {
+    display: none;
+  }
+  .landing-nav {
+    gap: 12px;
+    padding: 22px;
+  }
+}
+@container (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 45px 24px 65px;
+    gap: 40px;
+  }
+  .hero-visual {
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .value-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .approach {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+}
+@container (max-width: 600px) {
+  .value-grid {
+    grid-template-columns: 1fr;
+  }
+  .workspace .landing-nav .brand > strong > span {
+    display: none;
+  }
+}
+@container (max-width: 400px) {
+  .workspace .landing-nav .brand > strong {
+    display: none;
+  }
+}
+@media (max-width: 500px) {
+  .breadcrumb > span {
     display: none;
   }
 }

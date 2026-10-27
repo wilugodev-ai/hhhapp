@@ -9,12 +9,7 @@ import {
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import {
-  ActivatedRoute,
-  Router,
-  RouterLink,
-  RouterLinkActive,
-} from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import type { EChartsCoreOption } from "echarts/core";
 import { ApiService, errorMessage } from "./api.service";
@@ -25,6 +20,8 @@ import { MlrComponent } from "./mlr.component";
 import { AdminComponent } from "./admin.component";
 import { AppearanceService } from "./appearance.service";
 import { AppearanceSettingsComponent } from "./appearance-settings.component";
+import { MainNavigationComponent } from "./main-navigation.component";
+import { NavigationService, workspaceNavigation } from "./navigation.service";
 import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
@@ -34,13 +31,13 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     CommonModule,
     FormsModule,
     RouterLink,
-    RouterLinkActive,
     IconComponent,
     ChartComponent,
     ProfitLossComponent,
     MlrComponent,
     AdminComponent,
     AppearanceSettingsComponent,
+    MainNavigationComponent,
   ],
   templateUrl: "./workspace.component.html",
   host: {
@@ -51,6 +48,7 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 export class WorkspaceComponent implements OnInit {
   api = inject(ApiService);
   appearance = inject(AppearanceService);
+  navigation = inject(NavigationService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   data = signal<Dashboard | null>(null);
@@ -76,8 +74,8 @@ export class WorkspaceComponent implements OnInit {
   private accountMenuTrigger =
     viewChild<ElementRef<HTMLButtonElement>>("accountMenuTrigger");
   section = signal("overview");
-  collapsed = signal(false);
-  mobileMenu = signal(false);
+  collapsed = this.navigation.collapsed;
+  mobileMenu = this.navigation.mobileOpen;
   advanced = signal(false);
   dark = this.appearance.dark.asReadonly();
   search = signal("");
@@ -98,37 +96,7 @@ export class WorkspaceComponent implements OnInit {
   mlrFilters = signal<Filters>({});
   target = 85;
   private requestId = 0;
-  nav = [
-    { id: "overview", label: "Overview", icon: "grid", group: "WORKSPACE" },
-    { id: "profit-loss", label: "Profit & Loss", icon: "wallet" },
-    { id: "mlr", label: "MLR Analytics", icon: "heart" },
-    { id: "payers", label: "Payer Performance", icon: "building" },
-    { id: "centers", label: "Medical Centers", icon: "building" },
-    { id: "membership", label: "Membership", icon: "users" },
-    {
-      id: "forecast",
-      label: "Financial Forecast",
-      icon: "trend",
-      group: "INTELLIGENCE",
-      planned: true,
-    },
-    {
-      id: "scenarios",
-      label: "Scenario Modeling",
-      icon: "sliders",
-      planned: true,
-    },
-    {
-      id: "intelligence",
-      label: "HHH Intelligence",
-      icon: "spark",
-      planned: true,
-    },
-    { id: "reports", label: "Reports", icon: "file", group: "MANAGE" },
-    { id: "data", label: "Data Management", icon: "database" },
-    { id: "administration", label: "Administration", icon: "shield" },
-    { id: "settings", label: "Settings", icon: "settings" },
-  ];
+  nav = workspaceNavigation;
   activeNav = computed(
     () => this.nav.find((x) => x.id === this.section()) || this.nav[0],
   );

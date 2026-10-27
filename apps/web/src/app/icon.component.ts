@@ -1,6 +1,7 @@
 import { Component, input } from "@angular/core";
 
 const paths: Record<string, string> = {
+  home: "m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7",
   grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
   trend: "M3 17l6-6 4 4 8-10M15 5h6v6",
   chart: "M4 20V10m8 10V4m8 16v-7M2 21h20",
