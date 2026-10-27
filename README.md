@@ -22,7 +22,7 @@ The product will bring together executive dashboards, profit and loss analytics,
 
 This initial commit establishes the product brief and architectural direction. Application code, database schema, authentication, and deployment configuration have not been implemented yet.
 
-The existing Humana SSIS loader is reference material for business rules and data conventions. HHH will have its own architecture and will not require that loader to run.
+The product brief and agreed technology stack guide HHH's independent architecture and implementation.
 
 ## Development sequence
 
@@ -37,4 +37,3 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 ## Documentation
 
 - [Full product brief](docs/product-brief.md)
-- [Humana reference and implementation boundaries](docs/humana-warehouse-reference.md)
