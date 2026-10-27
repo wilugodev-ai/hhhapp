@@ -114,7 +114,144 @@ async function render(role = "Organization Administrator") {
   return { api, fixture, root, component: fixture.componentInstance, button };
 }
 afterEach(() => TestBed.resetTestingModule());
+function fill(root: HTMLElement, name: string, value: string) {
+  const input = root.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
 describe("Administration workspace", () => {
+  it("opens and focuses Invite user beside the toolbar and submits the form", async () => {
+    const { api, fixture, root, button } = await render();
+    button("Invite user").click();
+    await fixture.whenStable();
+    const editor = root.querySelector("#admin-invite-user");
+    expect(root.querySelector(".admin-toolbar")?.nextElementSibling).toBe(
+      editor,
+    );
+    expect(document.activeElement).toBe(
+      root.querySelector('input[name="inviteName"]'),
+    );
+    fill(root, "inviteName", "Taylor Jones");
+    fill(root, "inviteEmail", "person@example.com");
+    await fixture.whenStable();
+    button("Create setup link").click();
+    await vi.waitFor(() =>
+      expect(api.inviteUser).toHaveBeenCalledWith("org-1", {
+        email: "person@example.com",
+        displayName: "Taylor Jones",
+        role: "Executive Viewer",
+      }),
+    );
+    await fixture.whenStable();
+    const link = root.querySelector<HTMLInputElement>(
+      'input[aria-label="Setup link"]',
+    );
+    expect(link?.value).toContain("private-token");
+    expect(document.activeElement).toBe(link);
+    expect(root.querySelector("#admin-invite-user")).toBeNull();
+  });
+  it("opens New organization beside the toolbar and creates its first admin setup link", async () => {
+    const { api, fixture, root, button } = await render("System Administrator");
+    api.createOrganization.mockResolvedValueOnce({
+      organizationId: "org-2",
+      invitation: setup,
+    });
+    button("Invite user").click();
+    await fixture.whenStable();
+    button("New organization").click();
+    await fixture.whenStable();
+    expect(root.querySelector("#admin-invite-user")).toBeNull();
+    const editor = root.querySelector("#admin-create-organization");
+    expect(root.querySelector(".admin-toolbar")?.nextElementSibling).toBe(
+      editor,
+    );
+    expect(document.activeElement).toBe(
+      root.querySelector('input[name="orgName"]'),
+    );
+    fill(root, "orgName", "Summit");
+    fill(root, "orgAdminName", "Taylor Jones");
+    fill(root, "orgAdminEmail", "person@example.com");
+    await fixture.whenStable();
+    button("Create organization").click();
+    await vi.waitFor(() =>
+      expect(api.createOrganization).toHaveBeenCalledWith({
+        name: "Summit",
+        adminName: "Taylor Jones",
+        adminEmail: "person@example.com",
+        includeSampleData: false,
+      }),
+    );
+    await fixture.whenStable();
+    expect(api.adminUsers).toHaveBeenLastCalledWith("org-2", "", "", 1);
+    expect(root.querySelector("#admin-create-organization")).toBeNull();
+    expect(document.activeElement).toBe(
+      root.querySelector('input[aria-label="Setup link"]'),
+    );
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      "Organization created",
+    );
+  });
+  it("shows loading and completion when Reload directory is clicked", async () => {
+    const { api, fixture, root, component, button } = await render();
+    const directory = component.directory()!;
+    let finish!: (value: typeof directory) => void;
+    api.adminUsers.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    button("Reload directory").click();
+    fixture.detectChanges();
+    expect(button("Loading directory...").disabled).toBe(true);
+    expect(button("Invite user").disabled).toBe(true);
+    await vi.waitFor(() => expect(api.adminUsers).toHaveBeenCalledTimes(2));
+    finish(directory);
+    await vi.waitFor(() => expect(component.loading()).toBe(false));
+    await fixture.whenStable();
+    expect(api.adminAudit).toHaveBeenCalledTimes(2);
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      "Directory reloaded",
+    );
+    expect(button("Reload directory").disabled).toBe(false);
+  });
+  it("shows and focuses a reload error without reporting success", async () => {
+    const { api, fixture, root, component, button } = await render();
+    api.adminUsers.mockRejectedValueOnce(
+      new HttpErrorResponse({ status: 503 }),
+    );
+    button("Reload directory").click();
+    await vi.waitFor(() => expect(component.error()).toContain("HHH API"));
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(root.querySelector('[role="alert"]'));
+    expect(root.querySelector('[role="status"]')).toBeNull();
+    expect(button("Reload directory").disabled).toBe(false);
+  });
+  it("keeps an invitation draft visible when account creation fails", async () => {
+    const { api, fixture, root, component, button } = await render();
+    api.inviteUser.mockRejectedValueOnce(
+      new HttpErrorResponse({
+        status: 409,
+        error: { title: "This email already has an account." },
+      }),
+    );
+    button("Invite user").click();
+    await fixture.whenStable();
+    fill(root, "inviteName", "Taylor Jones");
+    fill(root, "inviteEmail", "person@example.com");
+    await fixture.whenStable();
+    button("Create setup link").click();
+    await vi.waitFor(() =>
+      expect(component.error()).toContain("already has an account"),
+    );
+    await fixture.whenStable();
+    expect(
+      root.querySelector<HTMLInputElement>('input[name="inviteEmail"]')?.value,
+    ).toBe("person@example.com");
+    expect(document.activeElement).toBe(root.querySelector('[role="alert"]'));
+    expect(root.querySelector('input[aria-label="Setup link"]')).toBeNull();
+    expect(button("Create setup link").disabled).toBe(false);
+  });
   it("denies non-admin roles without requesting the directory", async () => {
     const { api, root } = await render("Chief Financial Officer");
     expect(root.textContent).toContain("Administrator access required");

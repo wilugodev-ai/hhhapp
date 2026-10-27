@@ -108,19 +108,84 @@
           }
         </button>
         <div class="topbar-divider"></div>
-        <span class="user-avatar">{{ initials() }}</span>
-        <div class="user-meta">
-          <strong>{{ api.user()?.displayName }}</strong
-          ><small>{{ api.user()?.roles?.[0] }}</small>
+        <div
+          #accountMenuRoot
+          class="account-menu-root"
+          (focusout)="onAccountMenuFocusOut($event)"
+        >
+          <button
+            #accountMenuTrigger
+            type="button"
+            class="account-menu-trigger"
+            aria-label="Your account"
+            title="Your account"
+            aria-controls="user-account-menu"
+            [attr.aria-expanded]="accountMenuOpen()"
+            (click)="toggleAccountMenu()"
+          >
+            <span class="user-avatar" aria-hidden="true">{{ initials() }}</span>
+            <span class="user-meta">
+              <strong>{{ api.user()?.displayName }}</strong>
+              <small>{{ api.user()?.roles?.[0] }}</small>
+            </span>
+          </button>
+          @if (accountMenuOpen()) {
+            <section
+              id="user-account-menu"
+              class="account-menu panel"
+              aria-label="Your account"
+            >
+              <div class="account-menu-details">
+                <strong>{{ api.user()?.displayName }}</strong>
+                <span>{{ api.user()?.email }}</span>
+                <span>{{ api.user()?.organization }}</span>
+                <small>{{ api.user()?.roles?.join(", ") }}</small>
+              </div>
+              <a
+                class="account-menu-action"
+                routerLink="/app/settings"
+                (click)="closeAccountMenu()"
+              >
+                <hhh-icon name="settings" />Settings
+              </a>
+              @if (isAdministrator()) {
+                <a
+                  class="account-menu-action"
+                  routerLink="/app/administration"
+                  (click)="closeAccountMenu()"
+                >
+                  <hhh-icon name="users" />Administration
+                </a>
+              }
+              <button
+                type="button"
+                class="account-menu-action"
+                (click)="logout()"
+                [disabled]="signingOut()"
+              >
+                <hhh-icon name="logout" />{{
+                  signingOut() ? "Signing out..." : "Sign out"
+                }}
+              </button>
+            </section>
+          }
         </div>
         <button
           class="icon-button"
           (click)="logout()"
           aria-label="Sign out"
           title="Sign out"
+          [disabled]="signingOut()"
         >
-          <hhh-icon name="logout" />
+          @if (signingOut()) {
+            <span class="loader" aria-hidden="true"></span>
+          } @else {
+            <hhh-icon name="logout" />
+          }
         </button>
+        @if (signingOut()) {
+          <span class="sr-only" role="status">Signing out...</span>
+        }
       </div>
     </header>
     <main class="content">
@@ -142,7 +207,14 @@
             }}
           </p>
         </div>
-        @if (section() !== "profit-loss" && section() !== "mlr") {
+        @if (
+          !isPlanned() &&
+          section() !== "profit-loss" &&
+          section() !== "mlr" &&
+          section() !== "administration" &&
+          section() !== "settings" &&
+          section() !== "data"
+        ) {
           <button
             class="btn btn-outline export-button"
             (click)="exportCsv()"

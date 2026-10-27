@@ -1,4 +1,12 @@
-import { Component, computed, inject, OnInit, signal } from "@angular/core";
+import {
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  OnInit,
+  signal,
+  viewChild,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import {
@@ -35,6 +43,10 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     AppearanceSettingsComponent,
   ],
   templateUrl: "./workspace.component.html",
+  host: {
+    "(document:click)": "onAccountMenuOutsideClick($event)",
+    "(document:keydown.escape)": "onAccountMenuEscape($event)",
+  },
 })
 export class WorkspaceComponent implements OnInit {
   api = inject(ApiService);
@@ -47,6 +59,22 @@ export class WorkspaceComponent implements OnInit {
   error = signal("");
   notice = signal("");
   exporting = signal(false);
+  signingOut = signal(false);
+  accountMenuOpen = signal(false);
+  isAdministrator = computed(
+    () =>
+      this.api
+        .user()
+        ?.roles.some(
+          (role) =>
+            role === "System Administrator" ||
+            role === "Organization Administrator",
+        ) ?? false,
+  );
+  private accountMenuRoot =
+    viewChild<ElementRef<HTMLElement>>("accountMenuRoot");
+  private accountMenuTrigger =
+    viewChild<ElementRef<HTMLButtonElement>>("accountMenuTrigger");
   section = signal("overview");
   collapsed = signal(false);
   mobileMenu = signal(false);
@@ -237,6 +265,7 @@ export class WorkspaceComponent implements OnInit {
         return;
       }
       this.section.set(section);
+      this.closeAccountMenu();
       this.search.set("");
       this.mobileMenu.set(false);
       this.notice.set("");
@@ -332,12 +361,46 @@ export class WorkspaceComponent implements OnInit {
       this.notice.set(errorMessage(e));
     }
   }
+  toggleAccountMenu() {
+    this.accountMenuOpen.update((open) => !open);
+  }
+  closeAccountMenu(restoreFocus = false) {
+    if (!this.accountMenuOpen()) return;
+    this.accountMenuOpen.set(false);
+    if (restoreFocus) this.accountMenuTrigger()?.nativeElement.focus();
+  }
+  onAccountMenuOutsideClick(event: MouseEvent) {
+    if (
+      this.accountMenuOpen() &&
+      !this.accountMenuRoot()?.nativeElement.contains(event.target as Node)
+    )
+      this.closeAccountMenu();
+  }
+  onAccountMenuFocusOut(event: FocusEvent) {
+    const next = event.relatedTarget;
+    if (
+      !(next instanceof Node) ||
+      !this.accountMenuRoot()?.nativeElement.contains(next)
+    )
+      this.closeAccountMenu();
+  }
+  onAccountMenuEscape(event: Event) {
+    if (!this.accountMenuOpen()) return;
+    event.preventDefault();
+    this.closeAccountMenu(true);
+  }
   async logout() {
+    if (this.signingOut()) return;
+    this.closeAccountMenu();
+    this.signingOut.set(true);
+    this.notice.set("");
     try {
       await this.api.logout();
       await this.router.navigateByUrl("/login");
     } catch (e) {
       this.notice.set(errorMessage(e));
+    } finally {
+      this.signingOut.set(false);
     }
   }
   toggleTheme() {

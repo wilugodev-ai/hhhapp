@@ -17,24 +17,31 @@
       </div>
       <div class="admin-buttons">
         <button
+          type="button"
           class="btn btn-outline"
           (click)="reload()"
           [disabled]="loading() || busy()"
         >
-          Reload directory
+          {{ loading() ? "Loading directory..." : "Reload directory" }}
         </button>
         @if (isSystem()) {
           <button
+            type="button"
             class="btn btn-outline"
-            (click)="orgCreateOpen.set(!orgCreateOpen())"
-            [disabled]="busy()"
+            (click)="openOrganization()"
+            [attr.aria-expanded]="orgCreateOpen()"
+            aria-controls="admin-create-organization"
+            [disabled]="loading() || busy()"
           >
             New organization
           </button>
         }
         <button
+          type="button"
           class="btn btn-primary"
-          (click)="inviteOpen.set(!inviteOpen())"
+          (click)="openInvite()"
+          [attr.aria-expanded]="inviteOpen()"
+          aria-controls="admin-invite-user"
           [disabled]="loading() || busy() || !selected()?.isActive"
         >
           Invite user
@@ -42,7 +49,9 @@
       </div>
     </section>
     @if (error()) {
-      <div class="error-banner" role="alert">{{ error() }}</div>
+      <div #errorBanner class="error-banner" role="alert" tabindex="-1">
+        {{ error() }}
+      </div>
     }
     @if (notice()) {
       <div class="notice-banner" role="status">{{ notice() }}</div>
@@ -53,88 +62,12 @@
         until a system administrator reactivates it.
       </div>
     }
-    <section class="admin-summary" aria-label="Organization summary">
-      <div class="panel">
-        <small>ORGANIZATION</small
-        ><strong>{{ selected()?.name || "Loading workspace" }}</strong
-        ><span>{{
-          selected()?.isActive ? "Active workspace" : "Inactive workspace"
-        }}</span>
-      </div>
-      <div class="panel">
-        <small>PEOPLE</small><strong>{{ selected()?.userCount ?? 0 }}</strong
-        ><span
-          >{{ selected()?.activeUsers ?? 0 }} active accounts with completed
-          setup</span
-        >
-      </div>
-      <div class="panel">
-        <small>YOUR ACCESS</small
-        ><strong>{{
-          isSystem() ? "Platform administrator" : "Organization administrator"
-        }}</strong
-        ><span>{{
-          isSystem()
-            ? "Manage organizations and their users"
-            : "Manage this organization only"
-        }}</span>
-      </div>
-    </section>
-    <section class="panel admin-editor">
-      <h3>Configure your workspace</h3>
-      <p>Set up your organization, financial rules, and team access.</p>
-      <div class="admin-buttons">
-        @if (isSystem()) {
-          <button
-            type="button"
-            class="btn btn-outline"
-            (click)="editOrganization()"
-            [disabled]="loading() || busy()"
-          >
-            Organization details
-          </button>
-        }
-        <a class="btn btn-outline" routerLink="/app/settings"
-          >Financial settings</a
-        ><a class="btn btn-outline" routerLink="/app/mlr"
-          >MLR definitions & targets</a
-        ><button
-          type="button"
-          class="btn btn-primary"
-          (click)="inviteOpen.set(true)"
-          [disabled]="loading() || busy() || !selected()?.isActive"
-        >
-          Invite your team
-        </button>
-      </div>
-    </section>
-    @if (isSystem()) {
-      <section class="panel admin-org-picker">
-        <label
-          >Organization<select
-            name="organization"
-            [(ngModel)]="selectedOrg"
-            (ngModelChange)="changeOrganization()"
-            [disabled]="busy() || loading()"
-          >
-            @for (org of organizations(); track org.id) {
-              <option [value]="org.id">
-                {{ org.name }}{{ org.isActive ? "" : " (inactive)" }}
-              </option>
-            }
-          </select></label
-        >
-        <button
-          class="btn btn-outline"
-          (click)="editOrganization()"
-          [disabled]="busy() || loading()"
-        >
-          Edit organization
-        </button>
-      </section>
-    }
     @if (orgCreateOpen() && isSystem()) {
-      <section class="panel admin-editor">
+      <section
+        id="admin-create-organization"
+        class="panel admin-editor"
+        aria-label="Create organization"
+      >
         <h3>Create organization</h3>
         <p>
           The first organization administrator sets their own password through a
@@ -152,6 +85,7 @@
           }
           <label
             >Organization name<input
+              #orgNameInput
               name="orgName"
               [(ngModel)]="orgName"
               required
@@ -195,6 +129,7 @@
         <form (ngSubmit)="saveOrganization()" class="admin-form">
           <label
             >Organization name<input
+              #orgEditInput
               name="orgEditName"
               [(ngModel)]="orgEditName"
               required
@@ -229,7 +164,11 @@
       </section>
     }
     @if (inviteOpen()) {
-      <section class="panel admin-editor">
+      <section
+        id="admin-invite-user"
+        class="panel admin-editor"
+        aria-label="Invite a team member"
+      >
         <h3>Invite a team member</h3>
         <p>
           Create their account and share a setup link privately. No email is
@@ -238,6 +177,7 @@
         <form (ngSubmit)="invite()" class="admin-form">
           <label
             >Full name<input
+              #inviteNameInput
               name="inviteName"
               [(ngModel)]="inviteName"
               required
@@ -286,7 +226,11 @@
           works once; anyone holding it can set this account's password.
         </p>
         <label
-          >Setup link<input aria-label="Setup link" [value]="link()" readonly
+          >Setup link<input
+            #setupLinkInput
+            aria-label="Setup link"
+            [value]="link()"
+            readonly
         /></label>
         <div class="admin-buttons">
           <button class="btn btn-primary" (click)="copyLink()">Copy link</button
@@ -306,6 +250,7 @@
         <form (ngSubmit)="saveUser()" class="admin-form">
           <label
             >Full name<input
+              #editNameInput
               name="editName"
               [(ngModel)]="editName"
               required
@@ -363,6 +308,7 @@
         </p>
         <div class="admin-buttons">
           <button
+            #confirmationButton
             class="btn btn-primary"
             (click)="confirmAction()"
             [disabled]="busy()"
@@ -376,6 +322,86 @@
             Cancel
           </button>
         </div>
+      </section>
+    }
+    <section class="admin-summary" aria-label="Organization summary">
+      <div class="panel">
+        <small>ORGANIZATION</small
+        ><strong>{{ selected()?.name || "Loading workspace" }}</strong
+        ><span>{{
+          selected()?.isActive ? "Active workspace" : "Inactive workspace"
+        }}</span>
+      </div>
+      <div class="panel">
+        <small>PEOPLE</small><strong>{{ selected()?.userCount ?? 0 }}</strong
+        ><span
+          >{{ selected()?.activeUsers ?? 0 }} active accounts with completed
+          setup</span
+        >
+      </div>
+      <div class="panel">
+        <small>YOUR ACCESS</small
+        ><strong>{{
+          isSystem() ? "Platform administrator" : "Organization administrator"
+        }}</strong
+        ><span>{{
+          isSystem()
+            ? "Manage organizations and their users"
+            : "Manage this organization only"
+        }}</span>
+      </div>
+    </section>
+    <section class="panel admin-editor">
+      <h3>Configure your workspace</h3>
+      <p>Set up your organization, financial rules, and team access.</p>
+      <div class="admin-buttons">
+        @if (isSystem()) {
+          <button
+            type="button"
+            class="btn btn-outline"
+            (click)="editOrganization()"
+            [disabled]="loading() || busy()"
+          >
+            Organization details
+          </button>
+        }
+        <a class="btn btn-outline" routerLink="/app/settings"
+          >Financial settings</a
+        ><a class="btn btn-outline" routerLink="/app/mlr"
+          >MLR definitions & targets</a
+        ><button
+          type="button"
+          class="btn btn-primary"
+          (click)="openInvite()"
+          [disabled]="loading() || busy() || !selected()?.isActive"
+        >
+          Invite your team
+        </button>
+      </div>
+    </section>
+    @if (isSystem()) {
+      <section class="panel admin-org-picker">
+        <label
+          >Organization<select
+            name="organization"
+            [(ngModel)]="selectedOrg"
+            (ngModelChange)="changeOrganization()"
+            [disabled]="busy() || loading()"
+          >
+            @for (org of organizations(); track org.id) {
+              <option [value]="org.id">
+                {{ org.name }}{{ org.isActive ? "" : " (inactive)" }}
+              </option>
+            }
+          </select></label
+        >
+        <button
+          class="btn btn-outline"
+          (click)="editOrganization()"
+          [disabled]="busy() || loading()"
+        >
+          Edit organization
+        </button>
       </section>
     }
     <section class="panel admin-directory" [attr.aria-busy]="loading()">

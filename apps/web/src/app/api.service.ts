@@ -82,6 +82,8 @@ export class ApiService {
     this.user.set(await firstValueFrom(this.http.get<User>("/api/auth/me")));
   }
   async logout() {
+    // Refresh the token for the current identity before ending its session.
+    await this.csrf();
     try {
       await firstValueFrom(this.http.post("/api/auth/logout", {}));
     } catch (error) {

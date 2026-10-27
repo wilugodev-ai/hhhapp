@@ -4,7 +4,7 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from "@angular/common/http/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiService } from "./api.service";
 
 afterEach(() => {
@@ -26,11 +26,28 @@ describe("Revoked session sign-out", () => {
       mlrTarget: 85,
     });
     const logout = api.logout();
-    http
-      .expectOne("/api/auth/logout")
-      .flush({}, { status: 401, statusText: "Unauthorized" });
-    await Promise.resolve();
-    http.expectOne("/api/auth/csrf").flush({ demoEnabled: true });
+    http.expectOne("/api/auth/csrf").flush({ demoEnabled: false });
+    const request = await vi.waitFor(() => http.expectOne("/api/auth/logout"));
+    request.flush({}, { status: 401, statusText: "Unauthorized" });
+    const refresh = await vi.waitFor(() => http.expectOne("/api/auth/csrf"));
+    refresh.flush({ demoEnabled: false });
+    await logout;
+    expect(api.user()).toBeNull();
+  });
+  it("refreshes CSRF before signing out and again for the anonymous session", async () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const api = TestBed.inject(ApiService);
+    const http = TestBed.inject(HttpTestingController);
+    const logout = api.logout();
+    http.expectNone("/api/auth/logout");
+    http.expectOne("/api/auth/csrf").flush({ demoEnabled: false });
+    const request = await vi.waitFor(() => http.expectOne("/api/auth/logout"));
+    expect(request.request.method).toBe("POST");
+    request.flush({});
+    const refresh = await vi.waitFor(() => http.expectOne("/api/auth/csrf"));
+    refresh.flush({ demoEnabled: false });
     await logout;
     expect(api.user()).toBeNull();
   });

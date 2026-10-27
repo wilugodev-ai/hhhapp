@@ -465,6 +465,71 @@ strong {
   font-size: 8px;
   color: var(--muted);
 }
+.account-menu-root {
+  position: relative;
+}
+.account-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.account-menu-trigger:hover,
+.account-menu-trigger[aria-expanded="true"] {
+  background: var(--bg);
+}
+.account-menu.panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(300px, calc(100vw - 96px));
+  z-index: 80;
+  padding: 10px;
+  box-shadow: 0 12px 35px #0b263326;
+}
+.account-menu-details {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.account-menu-details strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.account-menu-details span,
+.account-menu-details small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.account-menu-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.account-menu-action:hover {
+  background: var(--bg);
+}
 .notification-button {
   position: relative;
 }
