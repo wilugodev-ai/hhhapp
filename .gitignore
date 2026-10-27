@@ -1,0 +1,39 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+*.pfx
+*.pem
+*.key
+
+# Build outputs and dependencies
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/__pycache__/
+**/.venv/
+**/.pytest_cache/
+**/TestResults/
+coverage/
+*.pyc
+
+# Editors and operating system
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+
+# Local data and logs
+*.log
+*.bak
+*.mdf
+*.ldf
+*.db
+*.db-shm
+*.db-wal
