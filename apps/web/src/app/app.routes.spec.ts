@@ -1,0 +1,125 @@
+import { signal } from "@angular/core";
+import { TestBed } from "@angular/core/testing";
+import { provideRouter, Router } from "@angular/router";
+import { RouterTestingHarness } from "@angular/router/testing";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiService } from "./api.service";
+import { routes } from "./app.routes";
+import { LandingComponent } from "./landing.component";
+import { LoginComponent } from "./login.component";
+import { User } from "./models";
+import { WorkspaceComponent } from "./workspace.component";
+
+async function render(signedIn = true) {
+  const api = {
+    user: signal<User | null>(
+      signedIn
+        ? {
+            id: "current",
+            organizationId: "org-1",
+            displayName: "Current User",
+            email: "user@example.com",
+            organization: "Horizon",
+            roles: ["Executive Viewer"],
+            mlrTarget: 85,
+          }
+        : null,
+    ),
+    setupAvailable: signal(false),
+    demoEnabled: signal(false),
+    restore: vi.fn(async () => {}),
+    logout: vi.fn(async () => {}),
+    metadata: vi.fn(async () => ({
+      dimensions: [],
+      months: [],
+      reportMonths: [],
+      years: [],
+    })),
+    batches: vi.fn(async () => []),
+    dashboard: vi.fn(async () => null),
+  };
+  await TestBed.configureTestingModule({
+    providers: [provideRouter(routes), { provide: ApiService, useValue: api }],
+  }).compileComponents();
+  const harness = await RouterTestingHarness.create();
+  return { api, harness, router: TestBed.inject(Router) };
+}
+
+afterEach(() => {
+  TestBed.resetTestingModule();
+  document.documentElement.classList.remove("dark");
+});
+describe("Session-aware home navigation", () => {
+  it("keeps the session when the HHH logo opens home and returns directly to the workspace", async () => {
+    const { api, harness, router } = await render();
+    const user = api.user();
+    await harness.navigateByUrl("/app/overview", WorkspaceComponent);
+    await harness.fixture.whenStable();
+    harness
+      .routeNativeElement!.querySelector<HTMLAnchorElement>("aside .brand")!
+      .click();
+    await vi.waitFor(() => expect(router.url).toBe("/"));
+    await harness.fixture.whenStable();
+    const home = harness.routeNativeElement!;
+    expect(home.querySelector(".landing-session")?.textContent).toContain(
+      "Current User",
+    );
+    expect(home.querySelector('a[href="/login"]')).toBeNull();
+    expect(home.querySelectorAll('a[href="/app/overview"]').length).toBe(4);
+    home
+      .querySelector<HTMLAnchorElement>('.landing-nav a[href="/app/overview"]')!
+      .click();
+    await vi.waitFor(() => expect(router.url).toBe("/app/overview"));
+    await harness.fixture.whenStable();
+    expect(
+      harness.routeNativeElement!.querySelector('[aria-label="Your account"]'),
+    ).not.toBeNull();
+    expect(api.user()).toBe(user);
+    expect(api.logout).not.toHaveBeenCalled();
+    expect(api.restore).not.toHaveBeenCalled();
+  });
+  it("redirects a signed-in visit to login back to the workspace", async () => {
+    const { api, harness, router } = await render();
+    await harness.navigateByUrl("/login", WorkspaceComponent);
+    expect(router.url).toBe("/app/overview");
+    expect(api.restore).toHaveBeenCalledTimes(1);
+    expect(api.user()?.id).toBe("current");
+    expect(api.logout).not.toHaveBeenCalled();
+  });
+  it("allows sign-in again when the server reports that the previous session expired", async () => {
+    const { api, harness, router } = await render();
+    api.restore.mockImplementationOnce(async () => {
+      api.user.set(null);
+    });
+    await harness.navigateByUrl("/login", LoginComponent);
+    expect(router.url).toBe("/login");
+    expect(harness.routeNativeElement!.textContent).toContain(
+      "Sign in to your workspace",
+    );
+  });
+  it("offers sign-in to visitors and protects the workspace", async () => {
+    const { api, harness, router } = await render(false);
+    await harness.navigateByUrl("/", LandingComponent);
+    expect(
+      harness.routeNativeElement!.querySelector(".landing-session"),
+    ).toBeNull();
+    expect(
+      harness.routeNativeElement!.querySelector(
+        '.landing-nav a[href="/login"]',
+      ),
+    ).not.toBeNull();
+    await harness.navigateByUrl("/app/overview", LoginComponent);
+    expect(router.url).toBe("/login");
+    expect(api.user()).toBeNull();
+  });
+  it("keeps first-administrator setup available on a new installation", async () => {
+    const { api, harness } = await render(false);
+    api.setupAvailable.set(true);
+    await harness.navigateByUrl("/", LandingComponent);
+    const action = harness.routeNativeElement!.querySelector<HTMLAnchorElement>(
+      ".hero-actions .btn-primary",
+    )!;
+    expect(action.getAttribute("href")).toBe("/setup");
+    expect(action.textContent).toContain("Set up your organization");
+  });
+});

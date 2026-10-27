@@ -49,6 +49,7 @@ export class ApiService {
     } catch (error) {
       if (!(error instanceof HttpErrorResponse && error.status === 401))
         throw error;
+      this.user.set(null);
     }
   }
   async completeAdministratorSetup(body: {

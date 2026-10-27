@@ -1,6 +1,6 @@
-import { Component, inject, signal } from "@angular/core";
-import { Router, RouterLink } from "@angular/router";
-import { ApiService, errorMessage } from "./api.service";
+import { Component, computed, inject } from "@angular/core";
+import { RouterLink } from "@angular/router";
+import { ApiService } from "./api.service";
 import { IconComponent } from "./icon.component";
 
 @Component({
@@ -14,10 +14,19 @@ import { IconComponent } from "./icon.component";
         ><strong>HHH<span>Healthcare Horizon Hub</span></strong></a
       >
       <div class="landing-links">
-        <a href="#platform">Platform</a><a href="#approach">Our approach</a
-        ><a routerLink="/login" class="btn btn-outline"
-          >Sign in <hhh-icon name="arrow"
-        /></a>
+        <a href="#platform">Platform</a><a href="#approach">Our approach</a>
+        @if (api.user(); as user) {
+          <span class="landing-session"
+            >Signed in as <strong>{{ user.displayName }}</strong></span
+          >
+          <a routerLink="/app/overview" class="btn btn-outline"
+            >Return to workspace <hhh-icon name="arrow"
+          /></a>
+        } @else {
+          <a routerLink="/login" class="btn btn-outline"
+            >Sign in <hhh-icon name="arrow"
+          /></a>
+        }
       </div>
     </nav>
     <main>
@@ -36,13 +45,13 @@ import { IconComponent } from "./icon.component";
             together in one place.
           </p>
           <div class="hero-actions">
-            <a
-              class="btn btn-primary"
-              [routerLink]="api.setupAvailable() ? '/setup' : '/login'"
+            <a class="btn btn-primary" [routerLink]="workspacePath()"
               >{{
-                api.setupAvailable()
-                  ? "Set up your organization"
-                  : "Open your workspace"
+                api.user()
+                  ? "Return to your workspace"
+                  : api.setupAvailable()
+                    ? "Set up your organization"
+                    : "Open your workspace"
               }}
               <hhh-icon name="arrow" /></a
             ><a class="btn btn-ghost" href="#approach"
@@ -165,9 +174,7 @@ import { IconComponent } from "./icon.component";
             HHH’s roadmap extends that foundation with explainable forecasting,
             scenario modeling, and a permission-aware financial assistant.
           </p>
-          <a
-            [routerLink]="api.setupAvailable() ? '/setup' : '/login'"
-            class="text-link"
+          <a [routerLink]="workspacePath()" class="text-link"
             >Open your workspace <hhh-icon name="arrow" /></a
           ><small>Optional starter financial data is clearly labeled.</small>
         </div>
@@ -176,12 +183,21 @@ import { IconComponent } from "./icon.component";
     <footer>
       <span>© {{ year }} Healthcare Horizon Hub</span
       ><span>Transforming Healthcare Data Into Financial Foresight.</span
-      ><a routerLink="/login">Enter workspace <hhh-icon name="arrow" /></a>
+      ><a [routerLink]="workspacePath()"
+        >Enter workspace <hhh-icon name="arrow"
+      /></a>
     </footer>
   </div>`,
 })
 export class LandingComponent {
   api = inject(ApiService);
+  workspacePath = computed(() =>
+    this.api.user()
+      ? "/app/overview"
+      : this.api.setupAvailable()
+        ? "/setup"
+        : "/login",
+  );
   constructor() {
     document.documentElement.classList.remove("dark");
   }

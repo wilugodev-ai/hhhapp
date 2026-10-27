@@ -1472,6 +1472,23 @@ th.numeric {
   font-size: 11px;
   padding: 10px 15px;
 }
+.landing-session {
+  display: grid;
+  gap: 3px;
+  max-width: 150px;
+  font-size: 10px;
+}
+.landing-session strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #142a43;
+}
+@media (max-width: 1000px) {
+  .landing-session {
+    display: none;
+  }
+}
 .landing main {
   overflow: hidden;
 }

@@ -52,3 +52,40 @@ describe("Revoked session sign-out", () => {
     expect(api.user()).toBeNull();
   });
 });
+
+describe("Session restoration", () => {
+  const user = {
+    displayName: "Current User",
+    email: "user@example.com",
+    organization: "Horizon",
+    roles: ["Executive Viewer"],
+    mlrTarget: 85,
+  };
+  it("restores the account from the server when the page loads again", async () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const api = TestBed.inject(ApiService);
+    const http = TestBed.inject(HttpTestingController);
+    const restore = api.restore();
+    http.expectOne("/api/auth/csrf").flush({ demoEnabled: false });
+    const request = await vi.waitFor(() => http.expectOne("/api/auth/me"));
+    request.flush(user);
+    await restore;
+    expect(api.user()).toEqual(user);
+  });
+  it("clears a cached account when the server reports an expired session", async () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const api = TestBed.inject(ApiService);
+    const http = TestBed.inject(HttpTestingController);
+    api.user.set(user);
+    const restore = api.restore();
+    http.expectOne("/api/auth/csrf").flush({ demoEnabled: false });
+    const request = await vi.waitFor(() => http.expectOne("/api/auth/me"));
+    request.flush({}, { status: 401, statusText: "Unauthorized" });
+    await restore;
+    expect(api.user()).toBeNull();
+  });
+});
