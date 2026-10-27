@@ -3,11 +3,12 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { ApiService, errorMessage } from "./api.service";
+import { PasswordToggleComponent } from "./password-toggle.component";
 
 @Component({
   selector: "hhh-setup",
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PasswordToggleComponent],
   template: `<main class="login-layout">
     <section class="login-story">
       <a routerLink="/" class="brand"
@@ -143,18 +144,27 @@ import { ApiService, errorMessage } from "./api.service";
                   minlength="2"
                   maxlength="180"
               /></label>
-              <label
-                >Installation setup key<input
-                  name="setupKey"
-                  type="password"
-                  [(ngModel)]="setupKey"
-                  autocomplete="off"
-                  spellcheck="false"
-                  autocapitalize="none"
-                  required
-                  minlength="32"
-                  maxlength="256"
-              /></label>
+              <div class="secret-form-field">
+                <label for="installation-key">Installation setup key</label>
+                <div class="secret-input">
+                  <input
+                    #installationKey
+                    id="installation-key"
+                    name="setupKey"
+                    type="password"
+                    [(ngModel)]="setupKey"
+                    autocomplete="off"
+                    spellcheck="false"
+                    autocapitalize="none"
+                    required
+                    minlength="32"
+                    maxlength="256"
+                  /><hhh-password-toggle
+                    [field]="installationKey"
+                    label="installation key"
+                  />
+                </div>
+              </div>
               @if (api.sampleDataEnabled()) {
                 <label class="setup-starter"
                   ><input
@@ -170,30 +180,45 @@ import { ApiService, errorMessage } from "./api.service";
                   ></label
                 >
               }
-              <label
-                >Password<input
-                  name="password"
-                  type="password"
-                  [(ngModel)]="password"
-                  autocomplete="new-password"
-                  required
-                  minlength="12"
-                  maxlength="256"
-              /></label>
+              <div class="secret-form-field">
+                <label for="setup-password">Password</label>
+                <div class="secret-input">
+                  <input
+                    #setupPassword
+                    id="setup-password"
+                    name="password"
+                    type="password"
+                    [(ngModel)]="password"
+                    autocomplete="new-password"
+                    required
+                    minlength="12"
+                    maxlength="256"
+                  /><hhh-password-toggle [field]="setupPassword" />
+                </div>
+              </div>
               <small class="setup-password-help"
                 >Use at least 12 characters, including uppercase and lowercase
                 letters, a number, and a symbol.</small
               >
-              <label
-                >Confirm password<input
-                  name="confirmation"
-                  type="password"
-                  [(ngModel)]="confirmation"
-                  autocomplete="new-password"
-                  required
-                  minlength="12"
-                  maxlength="256"
-              /></label>
+              <div class="secret-form-field">
+                <label for="setup-confirmation">Confirm password</label>
+                <div class="secret-input">
+                  <input
+                    #setupConfirmation
+                    id="setup-confirmation"
+                    name="confirmation"
+                    type="password"
+                    [(ngModel)]="confirmation"
+                    autocomplete="new-password"
+                    required
+                    minlength="12"
+                    maxlength="256"
+                  /><hhh-password-toggle
+                    [field]="setupConfirmation"
+                    label="password confirmation"
+                  />
+                </div>
+              </div>
               <button
                 type="submit"
                 class="btn btn-primary"

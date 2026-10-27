@@ -3,10 +3,11 @@ import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { ApiService, errorMessage } from "./api.service";
 import { IconComponent } from "./icon.component";
+import { PasswordToggleComponent } from "./password-toggle.component";
 @Component({
   selector: "hhh-login",
   standalone: true,
-  imports: [FormsModule, RouterLink, IconComponent],
+  imports: [FormsModule, RouterLink, IconComponent, PasswordToggleComponent],
   template: ` <main class="login-layout">
     <section class="login-story">
       <a routerLink="/" class="brand"
@@ -45,17 +46,26 @@ import { IconComponent } from "./icon.component";
               autocomplete="username"
               required
               placeholder="you@organization.com"
-              maxlength="254" /></label
-          ><label
-            >Password<input
-              type="password"
-              name="password"
-              [(ngModel)]="password"
-              autocomplete="current-password"
-              required
-              placeholder="Enter your password"
-              maxlength="256" /></label
-          ><button class="btn btn-primary" type="submit" [disabled]="busy()">
+              maxlength="254"
+          /></label>
+          <div class="secret-form-field">
+            <label for="login-password">Password</label>
+            <div class="secret-input">
+              <input
+                #loginPassword
+                id="login-password"
+                type="password"
+                name="password"
+                [(ngModel)]="password"
+                autocomplete="current-password"
+                required
+                placeholder="Enter your password"
+                maxlength="256"
+              />
+              <hhh-password-toggle [field]="loginPassword" />
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit" [disabled]="busy()">
             {{ busy() ? "Signing in…" : "Sign in" }} <hhh-icon name="arrow" />
           </button>
         </form>

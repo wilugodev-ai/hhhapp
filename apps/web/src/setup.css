@@ -27,6 +27,20 @@
   margin-top: 16px;
   width: 100%;
 }
+.secret-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.secret-input {
+  position: relative;
+  width: 100%;
+}
+.login-form .secret-input input {
+  display: block;
+  width: 100%;
+  padding-right: 66px;
+}
 .setup-demo-note {
   margin-top: 14px !important;
   font-size: 11px !important;

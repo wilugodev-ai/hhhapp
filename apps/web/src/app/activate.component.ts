@@ -2,11 +2,12 @@ import { Component, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { ApiService, errorMessage } from "./api.service";
+import { PasswordToggleComponent } from "./password-toggle.component";
 
 @Component({
   selector: "hhh-activate",
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PasswordToggleComponent],
   template: `<main class="login-layout">
     <section class="login-story">
       <a routerLink="/" class="brand"
@@ -42,25 +43,45 @@ import { ApiService, errorMessage } from "./api.service";
             </p>
           } @else {
             <form (ngSubmit)="submit()">
-              <label
-                >New password<input
-                  name="password"
-                  type="password"
-                  autocomplete="new-password"
-                  [(ngModel)]="password"
-                  required
-                  minlength="12"
-                  maxlength="256" /></label
-              ><label
-                >Confirm password<input
-                  name="confirm"
-                  type="password"
-                  autocomplete="new-password"
-                  [(ngModel)]="confirmation"
-                  required
-                  minlength="12"
-                  maxlength="256" /></label
-              ><button class="btn btn-primary" [disabled]="busy()">
+              <div class="secret-form-field">
+                <label for="activation-password">New password</label>
+                <div class="secret-input">
+                  <input
+                    #activationPassword
+                    id="activation-password"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    [(ngModel)]="password"
+                    required
+                    minlength="12"
+                    maxlength="256"
+                  /><hhh-password-toggle
+                    [field]="activationPassword"
+                    label="new password"
+                  />
+                </div>
+              </div>
+              <div class="secret-form-field">
+                <label for="activation-confirmation">Confirm password</label>
+                <div class="secret-input">
+                  <input
+                    #activationConfirmation
+                    id="activation-confirmation"
+                    name="confirm"
+                    type="password"
+                    autocomplete="new-password"
+                    [(ngModel)]="confirmation"
+                    required
+                    minlength="12"
+                    maxlength="256"
+                  /><hhh-password-toggle
+                    [field]="activationConfirmation"
+                    label="password confirmation"
+                  />
+                </div>
+              </div>
+              <button class="btn btn-primary" [disabled]="busy()">
                 {{ busy() ? "Setting up account..." : "Set password" }}
               </button>
             </form>
