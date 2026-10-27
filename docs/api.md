@@ -6,10 +6,11 @@ All `/api` responses are non-cacheable. Authentication uses an HttpOnly session 
 | --- | --- | --- |
 | GET | `/health/live` | Process liveness |
 | GET | `/health/ready` | SQL connectivity readiness |
-| GET | `/api/auth/csrf` | Set antiforgery cookies; return `demoEnabled` and `setupAvailable` booleans |
+| GET | `/api/auth/csrf` | Set antiforgery cookies; return `demoEnabled`, `setupAvailable`, and `setupState=available|configured|disabled` |
 | POST | `/api/auth/setup` | Initial installation only: `{ setupKey, email, displayName, organizationName, password }`; creates and activates the first system administrator |
 | POST | `/api/auth/login` | Sign in using `{ "email": "...", "password": "..." }` |
 | POST | `/api/auth/demo` | Development-only synthetic CFO access |
+| POST | `/api/auth/demo-admin` | Development-only synthetic system-administrator access; also requires `Demo:Enabled=true`, CSRF, and the sign-in rate limit |
 | GET | `/api/auth/me` | Current user, organization, role, MLR target |
 | POST | `/api/auth/logout` | End the browser session |
 | GET | `/api/analytics/filters` | Authorized dimensions and available periods |

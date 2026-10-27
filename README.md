@@ -36,6 +36,8 @@ Administration now supports a searchable user directory, role and activation cha
 
 Fresh installations also have a `/setup` screen, linked from sign-in when the operator enables it with an API-side `Bootstrap__SetupKey`. It creates the first administrator and organization atomically and closes permanently after activation. The existing demo is already configured, so setup stays closed there. See [installation setup instructions](docs/administration.md#first-system-administrator).
 
+On the configured demo's `/setup` page, **Open demo administration** signs in to the synthetic system administrator and opens account management. Use **Invite user** to create an administrator account. This shortcut requires both Development environment and demo enablement; production uses normal administrator authentication.
+
 ## Run locally
 
 Prerequisites: .NET 10 SDK, Node.js 24.15 or later in the Node 24 release line, and SQL Server 2019 or later. The default development connection uses Windows authentication to `.\SQLEXPRESS01` and a dedicated `HhhDevelopment` database. Override it using `ConnectionStrings__Hhh` for another instance. Use an account that can create this development database and apply migrations.

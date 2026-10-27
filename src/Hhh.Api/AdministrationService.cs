@@ -321,6 +321,9 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
 
     public async Task<bool> SetupAvailable(CancellationToken ct) => ConfiguredSetupKey() is not null && !await SetupClosed(ct);
 
+    public async Task<string> SetupState(CancellationToken ct) => await SetupClosed(ct) ? "configured"
+        : ConfiguredSetupKey() is null ? "disabled" : "available";
+
     public async Task CreateFirstAdministrator(FirstAdministratorRequest request, CancellationToken ct)
     {
         if (!await SetupAvailable(ct)) throw new AdministrationException(404, "First-administrator setup is unavailable.");

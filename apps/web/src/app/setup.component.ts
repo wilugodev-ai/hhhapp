@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, PendingTasks, signal } from "@angular/core";
 import { HttpErrorResponse } from "@angular/common/http";
 import { FormsModule } from "@angular/forms";
-import { RouterLink } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 import { ApiService, errorMessage } from "./api.service";
 
 @Component({
@@ -34,26 +34,82 @@ import { ApiService, errorMessage } from "./api.service";
           </p>
           <a routerLink="/login" class="btn btn-primary">Continue to sign in</a>
         } @else {
-          <span class="eyebrow">FIRST ADMINISTRATOR</span>
-          <h2>Set up your organization</h2>
+          <span class="eyebrow">{{
+            api.setupState() === "configured"
+              ? "ADMINISTRATOR ACCESS"
+              : "FIRST ADMINISTRATOR"
+          }}</span>
+          <h2>
+            {{
+              api.setupState() === "configured"
+                ? api.demoEnabled()
+                  ? "This demo is already set up"
+                  : "Your workspace is already set up"
+                : "Set up your organization"
+            }}
+          </h2>
           @if (error()) {
             <div class="error-banner" role="alert">{{ error() }}</div>
           }
           @if (loading()) {
             <p role="status">Checking administrator setup...</p>
           } @else if (!api.setupAvailable()) {
-            <p>
-              Administrator setup is unavailable. Sign in with your existing
-              account, or contact the person managing this installation.
-            </p>
-            <a routerLink="/login" class="btn btn-primary">Go to sign in</a
-            ><button
-              class="btn btn-outline setup-check"
-              type="button"
-              (click)="load()"
-            >
-              Check again
-            </button>
+            @if (api.setupState() === "configured") {
+              @if (api.demoEnabled()) {
+                <p>
+                  This demo already has a system administrator. Open
+                  Administration to create your own account using
+                  <strong>Invite user</strong>, then choose the administrator
+                  role you need.
+                </p>
+                <button
+                  class="btn btn-primary"
+                  type="button"
+                  (click)="openDemoAdministration()"
+                  [disabled]="busy()"
+                >
+                  {{
+                    busy()
+                      ? "Opening administration..."
+                      : "Open demo administration"
+                  }}
+                </button>
+                <p class="setup-demo-note">
+                  Synthetic development workspace only.
+                </p>
+              } @else {
+                <p>
+                  An administrator account already exists. To add another
+                  administrator, open Administration and choose
+                  <strong>Invite user</strong>.
+                </p>
+                @if (isAdministrator()) {
+                  <a routerLink="/app/administration" class="btn btn-primary"
+                    >Open administration</a
+                  >
+                } @else {
+                  <a routerLink="/login" class="btn btn-primary"
+                    >Sign in as an administrator</a
+                  >
+                }
+              }
+            } @else {
+              <p>
+                {{
+                  api.setupState() === "disabled"
+                    ? "Administrator setup has not been enabled. Contact the person managing this installation to enable setup and provide your installation key."
+                    : "Administrator setup is unavailable. Sign in with your existing account, or contact the person managing this installation."
+                }}
+              </p>
+              <a routerLink="/login" class="btn btn-primary">Go to sign in</a>
+              <button
+                class="btn btn-outline setup-check"
+                type="button"
+                (click)="load()"
+              >
+                Check again
+              </button>
+            }
           } @else {
             <p>
               Use the setup key provided for this installation. This account
@@ -147,6 +203,7 @@ import { ApiService, errorMessage } from "./api.service";
 export class SetupComponent implements OnInit {
   api = inject(ApiService);
   private pending = inject(PendingTasks);
+  private router = inject(Router);
   loading = signal(true);
   busy = signal(false);
   error = signal("");
@@ -195,6 +252,7 @@ export class SetupComponent implements OnInit {
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 404) {
         this.api.setupAvailable.set(false);
+        this.api.setupState.set("unknown");
         this.clearSecrets();
       }
       this.error.set(
@@ -210,5 +268,31 @@ export class SetupComponent implements OnInit {
     this.setupKey = "";
     this.password = "";
     this.confirmation = "";
+  }
+  isAdministrator() {
+    return (
+      this.api
+        .user()
+        ?.roles.some((role) =>
+          ["System Administrator", "Organization Administrator"].includes(role),
+        ) ?? false
+    );
+  }
+  async openDemoAdministration() {
+    if (this.busy() || !this.api.demoEnabled()) return;
+    this.busy.set(true);
+    this.error.set("");
+    try {
+      await this.api.demoAdministrator();
+      await this.router.navigateByUrl("/app/administration");
+    } catch (error) {
+      this.error.set(
+        error instanceof HttpErrorResponse && error.status === 404
+          ? "Demo administrator access is unavailable. Sign in with an existing administrator account."
+          : errorMessage(error),
+      );
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

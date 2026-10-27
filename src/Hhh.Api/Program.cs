@@ -134,7 +134,8 @@ app.MapGet("/api/auth/csrf", async (HttpContext ctx, IAntiforgery antiforgery, A
         Secure = !app.Environment.IsDevelopment(),
         Path = "/"
     });
-    return Results.Ok(new { demoEnabled = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"), setupAvailable = await administration.SetupAvailable(ct) });
+    var setupState = await administration.SetupState(ct);
+    return Results.Ok(new { demoEnabled = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"), setupAvailable = setupState == "available", setupState });
 });
 
 app.MapPost("/api/auth/setup", async (FirstAdministratorRequest request, AdministrationService administration, CancellationToken ct) =>
@@ -165,6 +166,19 @@ app.MapPost("/api/auth/demo", async (UserManager<AppUser> users, SignInManager<A
     if (user is null || !user.IsActive || user.InvitationPending || !await db.Organizations.AnyAsync(o => o.Id == user.OrganizationId && o.IsActive)) return Results.NotFound();
     await signIn.SignInWithClaimsAsync(user, false, [new Claim("organization", user.OrganizationId.ToString())]);
     db.AuditEvents.Add(new() { OrganizationId = user.OrganizationId, UserId = user.Id, Action = "auth.demo", OccurredAt = DateTimeOffset.UtcNow });
+    await db.SaveChangesAsync();
+    return Results.Ok(new { success = true });
+}).RequireRateLimiting("login");
+
+app.MapPost("/api/auth/demo-admin", async (UserManager<AppUser> users, SignInManager<AppUser> signIn, HhhDbContext db) =>
+{
+    if (!app.Environment.IsDevelopment() || !app.Configuration.GetValue<bool>("Demo:Enabled")) return Results.NotFound();
+    var user = await users.FindByEmailAsync("sysadmin@hhh.local");
+    if (user is null || !user.IsActive || user.InvitationPending || await users.IsLockedOutAsync(user)
+        || !await users.IsInRoleAsync(user, Roles.SystemAdministrator)
+        || !await db.Organizations.AnyAsync(o => o.Id == user.OrganizationId && o.IsActive)) return Results.NotFound();
+    await signIn.SignInWithClaimsAsync(user, false, [new Claim("organization", user.OrganizationId.ToString())]);
+    db.AuditEvents.Add(new() { OrganizationId = user.OrganizationId, UserId = user.Id, Action = "auth.demo.admin", OccurredAt = DateTimeOffset.UtcNow });
     await db.SaveChangesAsync();
     return Results.Ok(new { success = true });
 }).RequireRateLimiting("login");

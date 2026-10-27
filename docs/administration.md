@@ -38,6 +38,10 @@ The directory supports name/email search, status filters, and pages of 25. Audit
 
 Development adds `sysadmin@hhh.local` (System Administrator) and `summit-admin@hhh.local` (Organization Administrator for Summit). Both use the documented synthetic demo password. Existing users, role changes, and deactivations are preserved by subsequent seeding.
 
+The configured demo's `/setup` page offers **Open demo administration**. This signs in only to the fixed synthetic `sysadmin@hhh.local` account and opens Administration. Choose **Invite user** to create another administrator, or **New organization** to provision a separate workspace and its administrator. The shortcut requires both Development environment and demo enablement; it returns 404 in other environments and cannot reactivate, unlock, or promote the sample account. It is audited as `auth.demo.admin`.
+
+Configured non-demo installations direct users to administrator sign-in or their existing Administration page. Installations missing an enabled setup key explain that setup must be enabled. The public status includes no administrator identities or setup-key values.
+
 For a fresh non-demo deployment, the operator sets `ASPNETCORE_ENVIRONMENT=Production` and `ConnectionStrings__Hhh`, then applies migrations using a provisioning identity. Start the deployed application with an API-only `Bootstrap__SetupKey` environment variable. Generate a random key of at least 32 characters; this PowerShell example creates a 256-bit key without printing it:
 
 ```powershell

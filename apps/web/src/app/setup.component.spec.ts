@@ -1,16 +1,20 @@
 import { TestBed } from "@angular/core/testing";
 import { HttpErrorResponse } from "@angular/common/http";
 import { signal } from "@angular/core";
-import { provideRouter } from "@angular/router";
+import { provideRouter, Router } from "@angular/router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiService } from "./api.service";
 import { SetupComponent } from "./setup.component";
 import { LoginComponent } from "./login.component";
+import { User } from "./models";
 
 async function render(available = true) {
   const api = {
     setupAvailable: signal(available),
+    setupState: signal(available ? "available" : "unknown"),
+    user: signal<User | null>(null),
     demoEnabled: signal(false),
+    demoAdministrator: vi.fn(async () => ({})),
     csrf: vi.fn(async () => ({})),
     completeAdministratorSetup: vi.fn(async (_body: unknown) => {
       api.setupAvailable.set(false);
@@ -44,6 +48,43 @@ afterEach(() => {
   document.documentElement.classList.remove("dark");
 });
 describe("First administrator setup", () => {
+  it("explains the configured demo and opens its existing administrator workspace", async () => {
+    const { api, component, fixture, root } = await render(false);
+    api.setupState.set("configured");
+    api.demoEnabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigateByUrl")
+      .mockResolvedValue(true);
+    expect(root.textContent).toContain("This demo is already set up");
+    expect(root.textContent).toContain("Invite user");
+    expect(root.textContent).toContain("Open demo administration");
+    expect(root.textContent).not.toContain("Check again");
+    await component.openDemoAdministration();
+    expect(api.demoAdministrator).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith("/app/administration");
+  });
+  it("keeps demo administrator sign-in out of non-demo installations", async () => {
+    const { api, component, fixture, root } = await render(false);
+    api.setupState.set("configured");
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(root.textContent).toContain("Your workspace is already set up");
+    expect(root.textContent).not.toContain("Open demo administration");
+    await component.openDemoAdministration();
+    expect(api.demoAdministrator).not.toHaveBeenCalled();
+  });
+  it("explains when installation setup needs to be enabled", async () => {
+    const { api, fixture, root } = await render(false);
+    api.setupState.set("disabled");
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(root.textContent).toContain(
+      "Administrator setup has not been enabled",
+    );
+    expect(root.textContent).toContain("Check again");
+  });
   it("hides the form when setup is unavailable", async () => {
     const { root, api, component } = await render(false);
     expect(root.textContent).toContain("Administrator setup is unavailable");

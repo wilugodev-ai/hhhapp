@@ -22,14 +22,22 @@ export class ApiService {
   user = signal<User | null>(null);
   demoEnabled = signal(false);
   setupAvailable = signal(false);
+  setupState = signal<"available" | "configured" | "disabled" | "unknown">(
+    "unknown",
+  );
   async csrf() {
     const config = await firstValueFrom(
-      this.http.get<{ demoEnabled: boolean; setupAvailable?: boolean }>(
-        "/api/auth/csrf",
-      ),
+      this.http.get<{
+        demoEnabled: boolean;
+        setupAvailable?: boolean;
+        setupState?: "available" | "configured" | "disabled";
+      }>("/api/auth/csrf"),
     );
     this.demoEnabled.set(config.demoEnabled);
     this.setupAvailable.set(config.setupAvailable === true);
+    this.setupState.set(
+      config.setupState ?? (config.setupAvailable ? "available" : "unknown"),
+    );
   }
   async restore() {
     await this.csrf();
@@ -50,6 +58,13 @@ export class ApiService {
     await this.csrf();
     await firstValueFrom(this.http.post("/api/auth/setup", body));
     this.setupAvailable.set(false);
+    this.setupState.set("configured");
+  }
+  async demoAdministrator() {
+    await this.csrf();
+    await firstValueFrom(this.http.post("/api/auth/demo-admin", {}));
+    await this.csrf();
+    this.user.set(await firstValueFrom(this.http.get<User>("/api/auth/me")));
   }
   async login(email: string, password: string, demo = false) {
     await this.csrf();
