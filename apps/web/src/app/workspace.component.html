@@ -1,0 +1,1026 @@
+<div
+  class="workspace"
+  [class.sidebar-collapsed]="collapsed()"
+  [class.mobile-open]="mobileMenu()"
+>
+  @if (mobileMenu()) {
+    <button
+      class="sidebar-scrim"
+      aria-label="Close navigation"
+      (click)="mobileMenu.set(false)"
+    ></button>
+  }
+  <aside class="sidebar">
+    <a class="brand" routerLink="/"
+      ><span class="brand-symbol">H<span>↗</span></span
+      ><strong>HHH<span>Healthcare Horizon Hub</span></strong></a
+    >
+    <div class="workspace-picker">
+      <span class="workspace-avatar">{{
+        api.user()?.organization?.slice(0, 1)
+      }}</span>
+      <div>
+        <strong>Organization workspace</strong
+        ><small>{{ api.user()?.organization }}</small>
+      </div>
+      <hhh-icon name="down" />
+    </div>
+    <nav aria-label="Main navigation">
+      @for (item of nav; track item.id) {
+        @if (item.group) {
+          <div class="nav-label">{{ item.group }}</div>
+        }
+        <a
+          [routerLink]="'/app/' + item.id"
+          routerLinkActive="active"
+          [title]="item.label"
+          [attr.aria-current]="section() === item.id ? 'page' : null"
+          ><hhh-icon [name]="item.icon" /><span>{{ item.label }}</span>
+          @if (item.planned) {
+            <i class="planned-dot" title="Planned module"></i>
+          }
+        </a>
+      }
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="demo-card">
+        <hhh-icon name="shield" />
+        <div>
+          <strong>A safe place to explore</strong
+          ><small>100% synthetic demo data</small>
+        </div>
+      </div>
+      <button
+        class="collapse-button"
+        (click)="collapsed.set(!collapsed())"
+        [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+      >
+        <hhh-icon name="menu" /><span>Collapse sidebar</span>
+      </button>
+    </div>
+  </aside>
+  <div class="workspace-main">
+    <header class="topbar">
+      <div class="breadcrumb">
+        <button
+          class="icon-button mobile-toggle"
+          aria-label="Open navigation"
+          (click)="mobileMenu.set(true)"
+        >
+          <hhh-icon name="menu" /></button
+        ><span>Workspace</span><span class="breadcrumb-slash">/</span
+        ><strong>{{ activeNav().label }}</strong>
+      </div>
+      <div class="topbar-actions">
+        <span class="synthetic-pill"
+          ><span class="status-dot"></span> Synthetic workspace</span
+        ><button
+          class="icon-button"
+          (click)="toggleTheme()"
+          [attr.aria-label]="
+            dark() ? 'Switch to light mode' : 'Switch to dark mode'
+          "
+        >
+          <hhh-icon [name]="dark() ? 'sun' : 'moon'" /></button
+        ><button
+          class="icon-button notification-button"
+          aria-label="View MLR alerts"
+          routerLink="/app/mlr"
+        >
+          <hhh-icon name="bell" />
+          @if (alerts().length) {
+            <i></i>
+          }
+        </button>
+        <div class="topbar-divider"></div>
+        <span class="user-avatar">{{ initials() }}</span>
+        <div class="user-meta">
+          <strong>{{ api.user()?.displayName }}</strong
+          ><small>{{ api.user()?.roles?.[0] }}</small>
+        </div>
+        <button
+          class="icon-button"
+          (click)="logout()"
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <hhh-icon name="logout" />
+        </button>
+      </div>
+    </header>
+    <main class="content">
+      <div class="page-heading">
+        <div>
+          <span class="eyebrow">YOUR FINANCIAL HORIZON</span>
+          <h1>
+            {{
+              section() === "overview"
+                ? "Executive overview"
+                : activeNav().label
+            }}<span class="heading-dot">.</span>
+          </h1>
+          <p>
+            {{
+              section() === "overview"
+                ? "A clearer view of performance. A stronger foundation for what’s next."
+                : "Turn healthcare financial data into informed decisions."
+            }}
+          </p>
+        </div>
+        <button
+          class="btn btn-outline export-button"
+          (click)="exportCsv()"
+          [disabled]="loading() || exporting() || !data()"
+        >
+          <hhh-icon name="download" />
+          {{ exporting() ? "Exporting…" : "Export report" }}
+        </button>
+      </div>
+      @if (notice()) {
+        <div class="notice-banner" role="status">
+          {{ notice()
+          }}<button
+            class="icon-button"
+            (click)="notice.set('')"
+            aria-label="Dismiss message"
+          >
+            <hhh-icon name="close" />
+          </button>
+        </div>
+      }
+      @if (
+        !isPlanned() &&
+        section() !== "settings" &&
+        section() !== "administration" &&
+        section() !== "data"
+      ) {
+        <section class="filter-bar" aria-label="Financial filters">
+          <div class="filter-label">
+            <hhh-icon name="filter" /><span>View by</span>
+          </div>
+          <label
+            >Effective month<select
+              [(ngModel)]="filters.month"
+              (ngModelChange)="onMonth()"
+              aria-label="Effective month"
+            >
+              <option value="">
+                {{ filters.year ? "Year to date" : "Latest month" }}
+              </option>
+              @for (month of metadata()?.months; track month) {
+                <option [value]="month">{{ monthLabel(month) }}</option>
+              }
+            </select></label
+          ><label
+            >Payer<select
+              [(ngModel)]="filters.payer"
+              (ngModelChange)="load()"
+              aria-label="Payer"
+            >
+              <option value="">All payers</option>
+              @for (option of options("Payer"); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select></label
+          ><label
+            >Medical center<select
+              [(ngModel)]="filters.center"
+              (ngModelChange)="load()"
+              aria-label="Medical center"
+            >
+              <option value="">All centers</option>
+              @for (option of options("MedicalCenter"); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select></label
+          ><button
+            class="filter-more"
+            (click)="advanced.set(!advanced())"
+            [attr.aria-expanded]="advanced()"
+          >
+            <hhh-icon name="sliders" /> More filters</button
+          ><button class="reset-button" (click)="reset()">Reset</button>
+        </section>
+        @if (advanced()) {
+          <section class="advanced-filters">
+            <label
+              >Year<select
+                [(ngModel)]="filters.year"
+                (ngModelChange)="onYear()"
+              >
+                <option value="">Monthly view</option>
+                @for (year of metadata()?.years; track year) {
+                  <option [value]="year">{{ year }} year to date</option>
+                }
+              </select></label
+            ><label
+              >Report month<select
+                [(ngModel)]="filters.reportMonth"
+                (ngModelChange)="load()"
+              >
+                <option value="">All reports</option>
+                @for (month of metadata()?.reportMonths; track month) {
+                  <option [value]="month">{{ monthLabel(month) }}</option>
+                }
+              </select></label
+            >
+            @for (
+              field of [
+                { key: "provider", kind: "Provider", label: "Provider / PCP" },
+                { key: "contract", kind: "Contract", label: "Contract" },
+                { key: "plan", kind: "Plan", label: "Plan" },
+                {
+                  key: "lineOfBusiness",
+                  kind: "LineOfBusiness",
+                  label: "Line of business",
+                },
+                { key: "region", kind: "Region", label: "Region" },
+              ];
+              track field.key
+            ) {
+              <label
+                >{{ field.label
+                }}<select
+                  [(ngModel)]="filters[field.key]"
+                  (ngModelChange)="load()"
+                >
+                  <option value="">All</option>
+                  @for (option of options(field.kind); track option.id) {
+                    <option [value]="option.id">{{ option.name }}</option>
+                  }
+                </select></label
+              >
+            }
+          </section>
+        }
+      }
+      @if (error()) {
+        <div class="error-banner" role="alert">
+          <hhh-icon name="info" />{{ error()
+          }}<button class="btn btn-outline" (click)="load()">Try again</button
+          ><a routerLink="/login">Sign in</a>
+        </div>
+      }
+      @if (loading()) {
+        <div class="loading-state" role="status">
+          <span class="loader"></span
+          ><span>Bringing your financial picture into focus…</span>
+        </div>
+      }
+      @if (!loading() && data(); as d) {
+        @if (isPlanned()) {
+          <section class="planned-panel panel">
+            <span class="large-feature-icon"
+              ><hhh-icon [name]="activeNav().icon" /></span
+            ><span class="eyebrow">ON THE HHH ROADMAP</span>
+            <h2>{{ activeNav().label }}</h2>
+            <p>
+              {{
+                section() === "forecast"
+                  ? "Explainable Python forecasting will add backtested revenue, medical cost, and membership projections with confidence intervals."
+                  : section() === "scenarios"
+                    ? "Scenario modeling will let you compare changes in membership, revenue PMPM, medical costs, and administrative expenses."
+                    : "HHH Intelligence will answer financial questions using authorized organizational data, validated calculations, and traceable sources."
+              }}
+            </p>
+            <span class="phase-pill">{{
+              section() === "intelligence"
+                ? "Phase 4 · Financial assistant"
+                : "Phase 3 · Predictive analytics"
+            }}</span
+            ><a class="btn btn-primary" routerLink="/app/overview"
+              >Explore current financial performance <hhh-icon name="arrow"
+            /></a>
+          </section>
+        } @else if (section() === "settings") {
+          <section class="panel settings-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Organization preferences</h2>
+                <p>Settings apply to {{ api.user()?.organization }}.</p>
+              </div>
+              <hhh-icon name="settings" />
+            </div>
+            <form (ngSubmit)="saveSettings()">
+              <label
+                >Operational MLR target (%)<input
+                  type="number"
+                  name="target"
+                  [(ngModel)]="target"
+                  min="1"
+                  max="100"
+                  step="0.1"
+                  required
+                  [disabled]="!canManage()"
+              /></label>
+              <p>
+                Payers above this threshold are flagged in the dashboard. This
+                operational target does not determine regulatory compliance.
+              </p>
+              <button
+                class="btn btn-primary"
+                type="submit"
+                [disabled]="!canManage()"
+              >
+                Save organization settings
+              </button>
+              @if (!canManage()) {
+                <small
+                  >Your role can view settings. A CFO or organization
+                  administrator can change them.</small
+                >
+              }
+            </form>
+          </section>
+        } @else if (section() === "administration") {
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Workspace access</h2>
+                <p>Your authenticated organization and permissions.</p>
+              </div>
+              <hhh-icon name="shield" />
+            </div>
+            <div class="access-details">
+              <div>
+                <span>Organization</span
+                ><strong>{{ api.user()?.organization }}</strong>
+              </div>
+              <div>
+                <span>Signed in as</span
+                ><strong>{{ api.user()?.displayName }}</strong>
+              </div>
+              <div>
+                <span>Role</span><strong>{{ api.user()?.roles?.[0] }}</strong>
+              </div>
+              <div>
+                <span>Data environment</span
+                ><strong>Synthetic development data</strong>
+              </div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Audit activity</h2>
+                <p>Authentication, exports, and settings changes.</p>
+              </div>
+            </div>
+            @if (canAudit()) {
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Occurred at</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (event of audit(); track event.id) {
+                      <tr>
+                        <td>{{ event.action }}</td>
+                        <td>{{ event.occurredAt | date: "medium" }}</td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="2">No audit activity yet.</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <div class="inline-info">
+                <hhh-icon name="lock" /> Audit records are available to
+                organization administrators.
+              </div>
+            }
+          </section>
+        } @else if (section() === "data") {
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Data sources & lineage</h2>
+                <p>
+                  Persistent financial snapshots loaded into your organization.
+                </p>
+              </div>
+              <span class="tag">SQL Server</span>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source batch</th>
+                    <th>Loaded</th>
+                    <th class="numeric">Snapshots</th>
+                    <th>Classification</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (batch of batches(); track batch.id) {
+                    <tr>
+                      <td>
+                        <strong>{{ batch.name }}</strong
+                        ><small class="cell-sub">{{ batch.id }}</small>
+                      </td>
+                      <td>{{ batch.loadedAt | date: "mediumDate" }}</td>
+                      <td class="numeric">{{ number(batch.snapshotCount) }}</td>
+                      <td><span class="status-chip">Synthetic</span></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="panel-footnote">
+              <hhh-icon name="info" /> Financials cover January 2025–September
+              2026. Report month is tracked separately from effective and
+              general ledger months.
+            </div>
+          </section>
+          <section class="panel next-phase">
+            <hhh-icon name="database" />
+            <div>
+              <h2>More sources, one financial picture</h2>
+              <p>
+                CSV, Excel, SQL Server, and REST ingestion with validation and
+                reconciliation are planned for the integration phase.
+              </p>
+            </div>
+          </section>
+        } @else if (d.snapshotCount === 0) {
+          <section class="empty-state panel">
+            <hhh-icon name="search" />
+            <h2>No financial records match these filters</h2>
+            <p>
+              Try another period or clear the payer and medical center filters.
+            </p>
+            <button class="btn btn-primary" (click)="reset()">
+              Reset filters
+            </button>
+          </section>
+        } @else {
+          <div class="period-context">
+            <span
+              ><span class="status-dot"></span> {{ periodLabel() }}
+              <span class="context-separator">|</span>
+              {{ number(d.snapshotCount) }} cohort snapshots</span
+            ><span><hhh-icon name="shield" /> Actuals · Synthetic data</span>
+          </div>
+          @if (
+            section() === "overview" ||
+            section() === "mlr" ||
+            section() === "profit-loss"
+          ) {
+            <section class="kpi-grid">
+              @for (card of cards(); track card.key) {
+                <article
+                  class="kpi-card"
+                  [class.featured]="card.key === 'netProfit'"
+                >
+                  <div class="kpi-top">
+                    <span>{{ card.label }}</span
+                    ><span class="kpi-icon"
+                      ><hhh-icon [name]="card.icon"
+                    /></span>
+                  </div>
+                  <div class="kpi-main">
+                    <strong>{{ formatMetric(card.value, card.kind) }}</strong
+                    ><svg
+                      class="sparkline"
+                      viewBox="0 0 92 32"
+                      aria-hidden="true"
+                    >
+                      <polyline
+                        [attr.points]="card.spark"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                      />
+                    </svg>
+                  </div>
+                  <div class="kpi-comparison">
+                    <span class="delta" [class.negative]="!card.positive">{{
+                      signed(card.delta)
+                    }}</span
+                    ><span
+                      >MoM{{
+                        d.periodMode === "year" ? " · final month" : ""
+                      }}</span
+                    ><span class="yoy">{{ signed(card.yoy) }} YoY</span>
+                  </div>
+                  <small class="previous-value"
+                    >Previous month:
+                    {{ formatMetric(card.previous, card.kind) }}</small
+                  >
+                </article>
+              }
+            </section>
+          }
+          @if (section() === "overview") {
+            <div class="dashboard-chart-grid">
+              <section class="panel revenue-panel">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Revenue & medical expenses</h2>
+                    <p>
+                      Your financial performance over the last 12 available
+                      months
+                    </p>
+                  </div>
+                  <span class="tag">Actuals</span>
+                </div>
+                <div class="chart-legend">
+                  <span><i class="legend-dot teal"></i>Revenue</span
+                  ><span><i class="legend-dot blue"></i>Medical expenses</span
+                  ><span class="legend-period">Trailing 12 months</span>
+                </div>
+                <hhh-chart
+                  [option]="revenueChart()"
+                  label="Monthly revenue and medical expenses in US dollars"
+                />
+              </section>
+              <section class="panel expense-panel">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Where medical costs go</h2>
+                    <p>{{ periodLabel() }} · Positive costs</p>
+                  </div>
+                </div>
+                <div class="donut-wrap">
+                  <hhh-chart
+                    [option]="expenseChart()"
+                    label="Medical expense categories excluding negative recoveries"
+                  />
+                  <div class="donut-center">
+                    <small>Gross medical costs</small
+                    ><strong>{{ money(grossMedicalCosts(), true) }}</strong>
+                  </div>
+                </div>
+                <div class="expense-legend">
+                  @for (row of expenseRows().slice(0, 4); track row.category) {
+                    <div>
+                      <span
+                        ><i
+                          class="legend-dot"
+                          [class]="'expense-color-' + $index"
+                        ></i
+                        >{{ row.category }}</span
+                      ><strong>{{ percent(expenseShare(row.amount)) }}</strong>
+                    </div>
+                  }
+                </div>
+              </section>
+            </div>
+            <section class="secondary-kpis">
+              <div>
+                <span>Ending membership</span
+                ><strong>{{ number(d.endingMembership) }}</strong
+                ><small>Unique synthetic cohort members</small>
+              </div>
+              <div>
+                <span>Revenue PMPM</span
+                ><strong>{{ money(d.totals.revenuePmpm) }}</strong
+                ><small>Revenue per member month</small>
+              </div>
+              <div>
+                <span>Medical cost PMPM</span
+                ><strong>{{ money(d.totals.costPmpm) }}</strong
+                ><small>Medical cost per member month</small>
+              </div>
+              <div>
+                <span>Gross profit margin</span
+                ><strong>{{ percent(d.totals.grossMargin) }}</strong
+                ><small>Before administrative expenses</small>
+              </div>
+              <div>
+                <span>Capitation revenue</span
+                ><strong>{{ money(d.totals.capitationRevenue, true) }}</strong
+                ><small>Included in total revenue</small>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Payer performance</h2>
+                  <p>See where your financial results take shape</p>
+                </div>
+                <a class="text-link" routerLink="/app/payers"
+                  >View all payers <hhh-icon name="arrow"
+                /></a>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Payer</th>
+                      <th class="numeric">Revenue</th>
+                      <th class="numeric">Medical expenses</th>
+                      <th class="numeric">Net profit</th>
+                      <th>Operational MLR</th>
+                      <th class="numeric">
+                        {{
+                          d.periodMode === "year" ? "Member months" : "Members"
+                        }}
+                      </th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of d.payers; track row.id) {
+                      <tr>
+                        <td>
+                          <span class="payer-cell"
+                            ><span
+                              class="payer-avatar"
+                              [class]="'payer-' + $index"
+                              >{{ row.name[0] }}</span
+                            ><strong>{{ row.name }}</strong></span
+                          >
+                        </td>
+                        <td class="numeric">
+                          {{ money(row.metrics.revenue) }}
+                        </td>
+                        <td class="numeric">
+                          {{ money(row.metrics.medicalExpenses) }}
+                        </td>
+                        <td
+                          class="numeric profit-cell"
+                          [class.loss]="row.metrics.netProfit < 0"
+                        >
+                          {{ money(row.metrics.netProfit) }}
+                        </td>
+                        <td>
+                          <span class="mlr-cell"
+                            ><span class="mini-track"
+                              ><span
+                                [style.width.%]="row.metrics.mlr || 0"
+                                [class.warning]="
+                                  (row.metrics.mlr || 0) > d.mlrTarget
+                                "
+                              ></span></span
+                            ><strong
+                              [class.amber-text]="
+                                (row.metrics.mlr || 0) > d.mlrTarget
+                              "
+                              >{{ percent(row.metrics.mlr) }}</strong
+                            ></span
+                          >
+                        </td>
+                        <td class="numeric">
+                          {{ number(row.metrics.memberMonths) }}
+                        </td>
+                        <td>
+                          <button
+                            class="icon-button"
+                            (click)="drillPayer(row)"
+                            [attr.aria-label]="
+                              'View ' + row.name + ' profit and loss'
+                            "
+                          >
+                            <hhh-icon name="right" />
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel-footnote">
+                <span class="status-dot"></span> Organization MLR target:
+                {{ percent(d.mlrTarget) }} <span>·</span> Ratios use aggregate
+                amounts, not averages.
+              </div>
+            </section>
+            <section class="insight-strip">
+              <span class="insight-icon"><hhh-icon name="spark" /></span>
+              <div>
+                <strong>{{
+                  alerts().length
+                    ? alerts().length +
+                      " payer" +
+                      (alerts().length > 1 ? "s are" : " is") +
+                      " above your MLR target"
+                    : "All payers are within your MLR target"
+                }}</strong>
+                <p>
+                  {{
+                    alerts().length
+                      ? "Review cost composition and IBNR before drawing conclusions about performance."
+                      : "Keep an eye on medical cost trends as membership and utilization change."
+                  }}
+                </p>
+              </div>
+              <a routerLink="/app/mlr" class="text-link"
+                >Explore MLR <hhh-icon name="arrow"
+              /></a>
+            </section>
+          } @else if (section() === "profit-loss") {
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Profit & loss statement</h2>
+                  <p>{{ periodLabel() }} · USD · Auditable component totals</p>
+                </div>
+                <span class="tag">Actuals</span>
+              </div>
+              <div class="table-scroll">
+                <table class="pnl-table">
+                  <thead>
+                    <tr>
+                      <th>Financial component</th>
+                      <th class="numeric">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="table-section">
+                      <td colspan="2">REVENUE</td>
+                    </tr>
+                    @for (row of revenueRows(); track row.category) {
+                      <tr>
+                        <td>{{ row.category }}</td>
+                        <td class="numeric">{{ money(row.amount) }}</td>
+                      </tr>
+                    }
+                    <tr class="subtotal">
+                      <td>Total revenue</td>
+                      <td class="numeric">{{ money(d.totals.revenue) }}</td>
+                    </tr>
+                    <tr class="table-section">
+                      <td colspan="2">MEDICAL & ADMINISTRATIVE EXPENSES</td>
+                    </tr>
+                    @for (row of expenseRows(); track row.category) {
+                      <tr>
+                        <td>
+                          {{ row.category }}
+                          @if (row.category === "IBNR") {
+                            <span class="tag">Estimate</span>
+                          }
+                        </td>
+                        <td class="numeric">{{ money(row.amount) }}</td>
+                      </tr>
+                    }
+                    <tr class="subtotal">
+                      <td>Total medical expenses</td>
+                      <td class="numeric">
+                        {{ money(d.totals.medicalExpenses) }}
+                      </td>
+                    </tr>
+                    <tr class="subtotal">
+                      <td>Administrative expenses</td>
+                      <td class="numeric">
+                        {{ money(d.totals.administrativeExpenses) }}
+                      </td>
+                    </tr>
+                    <tr class="net-total">
+                      <td>Net profit / loss</td>
+                      <td class="numeric">{{ money(d.totals.netProfit) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel-footnote">
+                <hhh-icon name="info" /> Net profit = revenue − medical expenses
+                − administrative expenses. Recoveries reduce medical costs; IBNR
+                is included once.
+              </div>
+            </section>
+          } @else if (section() === "mlr") {
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Operational MLR trend</h2>
+                  <p>
+                    Medical expenses ÷ revenue × 100 · Target
+                    {{ percent(d.mlrTarget) }}
+                  </p>
+                </div>
+                <span class="tag">Operational</span>
+              </div>
+              <hhh-chart
+                [option]="mlrChart()"
+                label="Monthly operational MLR and target"
+              />
+            </section>
+            <section class="mlr-alerts">
+              @for (row of d.payers; track row.id) {
+                <article class="panel">
+                  <span class="eyebrow">{{ row.name }}</span
+                  ><strong
+                    class="large-value"
+                    [class.amber-text]="(row.metrics.mlr || 0) > d.mlrTarget"
+                    >{{ percent(row.metrics.mlr) }}</strong
+                  ><span
+                    class="status-chip"
+                    [class.warning-chip]="(row.metrics.mlr || 0) > d.mlrTarget"
+                    >{{
+                      (row.metrics.mlr || 0) > d.mlrTarget
+                        ? "Above target"
+                        : "Within target"
+                    }}</span
+                  >
+                  <p>
+                    {{ money(row.metrics.medicalExpenses) }} medical costs<br />{{
+                      money(row.metrics.revenue)
+                    }}
+                    revenue
+                  </p>
+                </article>
+              }
+            </section>
+            <div class="inline-info">
+              <hhh-icon name="info" /> Operational MLR includes IBNR and net
+              stop-loss recoveries. Regulatory MLR, rolling windows, and
+              configurable inclusion definitions are planned enhancements.
+            </div>
+          } @else if (section() === "payers" || section() === "centers") {
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>
+                    {{ section() === "payers" ? "Payer" : "Medical center" }}
+                    financial performance
+                  </h2>
+                  <p>{{ periodLabel() }} · Sorted by revenue</p>
+                </div>
+                <label class="table-search"
+                  ><hhh-icon name="search" /><input
+                    [ngModel]="search()"
+                    (ngModelChange)="search.set($event)"
+                    [placeholder]="
+                      section() === 'payers'
+                        ? 'Search payers'
+                        : 'Search centers'
+                    "
+                    aria-label="Search performance table"
+                /></label>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th class="numeric">Revenue</th>
+                      <th class="numeric">Medical costs</th>
+                      <th class="numeric">Admin</th>
+                      <th class="numeric">Net profit</th>
+                      <th class="numeric">MLR</th>
+                      <th class="numeric">Revenue PMPM</th>
+                      <th class="numeric">Member months</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of groupRows(); track row.id) {
+                      <tr>
+                        <td>
+                          <strong>{{ row.name }}</strong>
+                        </td>
+                        <td class="numeric">
+                          {{ money(row.metrics.revenue) }}
+                        </td>
+                        <td class="numeric">
+                          {{ money(row.metrics.medicalExpenses) }}
+                        </td>
+                        <td class="numeric">
+                          {{ money(row.metrics.administrativeExpenses) }}
+                        </td>
+                        <td class="numeric profit-cell">
+                          {{ money(row.metrics.netProfit) }}
+                        </td>
+                        <td class="numeric">{{ percent(row.metrics.mlr) }}</td>
+                        <td class="numeric">
+                          {{ money(row.metrics.revenuePmpm) }}
+                        </td>
+                        <td class="numeric">
+                          {{ number(row.metrics.memberMonths) }}
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="8">No matching names.</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          } @else if (section() === "membership") {
+            <section class="secondary-kpis three">
+              <div>
+                <span>Ending membership</span
+                ><strong>{{ number(d.endingMembership) }}</strong
+                ><small>Members in the final effective month</small>
+              </div>
+              <div>
+                <span>Member months</span
+                ><strong>{{ number(d.totals.memberMonths) }}</strong
+                ><small>Exposure across the selected period</small>
+              </div>
+              <div>
+                <span>Revenue PMPM</span
+                ><strong>{{ money(d.totals.revenuePmpm) }}</strong
+                ><small>Total revenue ÷ member months</small>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Membership growth</h2>
+                  <p>Non-overlapping synthetic cohorts · Monthly membership</p>
+                </div>
+              </div>
+              <hhh-chart
+                [option]="membershipChart()"
+                label="Membership by effective month"
+              />
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Revenue & medical cost PMPM</h2>
+                  <p>Aggregate amounts divided by monthly membership</p>
+                </div>
+              </div>
+              <div class="chart-legend">
+                <span><i class="legend-dot teal"></i>Revenue PMPM</span
+                ><span><i class="legend-dot blue"></i>Medical cost PMPM</span>
+              </div>
+              <hhh-chart
+                [option]="pmpmChart()"
+                label="Revenue and medical cost per member month"
+              />
+            </section>
+          } @else if (section() === "reports") {
+            <section class="report-grid">
+              @for (
+                report of [
+                  {
+                    name: "Executive financial summary",
+                    icon: "grid",
+                    path: "overview",
+                  },
+                  {
+                    name: "Monthly profit & loss",
+                    icon: "wallet",
+                    path: "profit-loss",
+                  },
+                  { name: "MLR performance", icon: "heart", path: "mlr" },
+                  {
+                    name: "Payer profitability",
+                    icon: "building",
+                    path: "payers",
+                  },
+                  {
+                    name: "Medical center financials",
+                    icon: "building",
+                    path: "centers",
+                  },
+                  {
+                    name: "Membership analysis",
+                    icon: "users",
+                    path: "membership",
+                  },
+                ];
+                track report.name
+              ) {
+                <article class="panel report-card">
+                  <span class="value-icon"
+                    ><hhh-icon [name]="report.icon"
+                  /></span>
+                  <h2>{{ report.name }}</h2>
+                  <p>{{ periodLabel() }} · Current filters</p>
+                  <a [routerLink]="'/app/' + report.path" class="text-link"
+                    >Open report <hhh-icon name="arrow"
+                  /></a>
+                </article>
+              }
+            </section>
+            <section class="panel next-phase">
+              <hhh-icon name="download" />
+              <div>
+                <h2>Download your financial detail</h2>
+                <p>
+                  CSV includes the selected period, payer and center, financial
+                  totals, membership, and MLR. Excel and PDF exports are
+                  planned.
+                </p>
+              </div>
+              <button
+                class="btn btn-primary"
+                (click)="exportCsv()"
+                [disabled]="exporting()"
+              >
+                Download CSV
+              </button>
+            </section>
+          }
+        }
+      }
+      <footer class="workspace-footer">
+        <span>HHH <span>Healthcare Horizon Hub</span></span
+        ><span>Financial clarity. A wider horizon.</span
+        ><span>Phase 1 · Synthetic workspace</span>
+      </footer>
+    </main>
+  </div>
+</div>

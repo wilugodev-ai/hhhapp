@@ -1,4 +1,8 @@
 # Local configuration and secrets
+.tools/
+.artifacts/
+playwright-report/
+test-results/
 .env
 .env.*
 !.env.example

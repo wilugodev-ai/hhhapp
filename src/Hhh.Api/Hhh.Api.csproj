@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../Hhh.Domain/Hhh.Domain.csproj" />
+    <ProjectReference Include="../Hhh.Infrastructure/Hhh.Infrastructure.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
