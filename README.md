@@ -22,7 +22,7 @@ The product will bring together executive dashboards, profit and loss analytics,
 
 The application now includes a public landing page, sign-in, an interactive executive dashboard, P&L, operational MLR, payer and medical center comparisons, membership trends, filtered CSV reports, source lineage, organization settings, and administrator audit access. Financial metrics come from persistent SQL Server data through the authenticated ASP.NET API.
 
-The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. The seed contains 21 months of synthetic financials for two isolated organizations. No real member records are included.
+The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. Settings includes personal appearance controls with Classic, Horizon, Ocean, Warm, and custom-tint backgrounds, live previews, and a reset option. Appearance changes apply immediately, stay synchronized with the toolbar theme button and charts, and persist on the current browser for every role. The seed contains 21 months of synthetic financials for two isolated organizations. No real member records are included.
 
 The first Phase 2 increment adds monthly, quarterly, and yearly P&L statements, persistent approved budget plans, favorable/unfavorable variance, matched prior-year and previous-period comparisons, component drilldowns, paginated cohort lineage, and a P&L CSV export. Payer and center filters preserve the P&L reporting period.
 

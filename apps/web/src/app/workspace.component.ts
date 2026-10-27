@@ -15,6 +15,8 @@ import { IconComponent } from "./icon.component";
 import { ProfitLossComponent } from "./profit-loss.component";
 import { MlrComponent } from "./mlr.component";
 import { AdminComponent } from "./admin.component";
+import { AppearanceService } from "./appearance.service";
+import { AppearanceSettingsComponent } from "./appearance-settings.component";
 import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
@@ -30,11 +32,13 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     ProfitLossComponent,
     MlrComponent,
     AdminComponent,
+    AppearanceSettingsComponent,
   ],
   templateUrl: "./workspace.component.html",
 })
 export class WorkspaceComponent implements OnInit {
   api = inject(ApiService);
+  appearance = inject(AppearanceService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   data = signal<Dashboard | null>(null);
@@ -47,7 +51,7 @@ export class WorkspaceComponent implements OnInit {
   collapsed = signal(false);
   mobileMenu = signal(false);
   advanced = signal(false);
-  dark = signal(localStorage.getItem("hhh-theme") === "dark");
+  dark = this.appearance.dark.asReadonly();
   search = signal("");
   batches = signal<Batch[]>([]);
   filters: Filters = {
@@ -225,7 +229,7 @@ export class WorkspaceComponent implements OnInit {
   });
 
   constructor() {
-    document.documentElement.classList.toggle("dark", this.dark());
+    this.appearance.applyTheme();
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const section = params.get("section") || "overview";
       if (!this.nav.some((x) => x.id === section)) {
@@ -337,9 +341,7 @@ export class WorkspaceComponent implements OnInit {
     }
   }
   toggleTheme() {
-    this.dark.update((x) => !x);
-    localStorage.setItem("hhh-theme", this.dark() ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", this.dark());
+    this.appearance.setTheme(!this.dark());
   }
   money(value: number | null, compact = false) {
     return value === null

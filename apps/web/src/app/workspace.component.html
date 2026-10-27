@@ -1,5 +1,6 @@
 <div
   class="workspace"
+  [style.background]="appearance.backgroundStyle()"
   [class.sidebar-collapsed]="collapsed()"
   [class.mobile-open]="mobileMenu()"
 >
@@ -297,6 +298,9 @@
       }
       @if (section() === "administration") {
         <hhh-admin />
+      }
+      @if (section() === "settings") {
+        <hhh-appearance-settings />
       }
       @if (
         !loading() &&

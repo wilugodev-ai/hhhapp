@@ -1,0 +1,222 @@
+.appearance-panel {
+  padding: 26px;
+  margin-bottom: 24px;
+}
+.appearance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.appearance-heading h2 {
+  color: var(--ink);
+  margin: 8px 0;
+  font-size: 20px;
+}
+.appearance-heading p,
+.appearance-saved {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+.appearance-group {
+  border: 0;
+  padding: 0;
+  margin: 26px 0 0;
+  min-width: 0;
+}
+.appearance-group legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 0;
+  margin-bottom: 12px;
+}
+.appearance-modes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.appearance-mode,
+.appearance-choice {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surface);
+}
+.appearance-mode {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 4px;
+  padding: 14px 20px;
+  min-width: 200px;
+}
+.appearance-mode input,
+.appearance-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.appearance-mode:focus-within,
+.appearance-choice:focus-within {
+  outline: 3px solid #00a99966;
+  outline-offset: 3px;
+}
+.appearance-panel .is-selected {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 1px var(--teal);
+}
+.appearance-mode strong,
+.appearance-choice strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.appearance-mode small,
+.appearance-choice small {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.appearance-mode small {
+  grid-column: 2;
+}
+.mode-dot {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #9aaabb;
+  border-radius: 50%;
+  grid-row: 1 / 3;
+}
+.mode-light {
+  background: #f5f7fa;
+}
+.mode-dark {
+  background: #10263d;
+}
+.appearance-backgrounds {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.appearance-choice {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 8px 13px;
+  min-width: 0;
+}
+.appearance-preview {
+  height: 104px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+  display: flex;
+}
+.appearance-preview-nav {
+  width: 21%;
+  background: #0b1f35;
+}
+.appearance-preview-content {
+  display: grid;
+  grid-template-rows: 5px 26px 1fr;
+  flex: 1;
+  min-width: 0;
+  padding: 13px 9px 9px;
+  gap: 9px;
+}
+.appearance-preview-content > i:first-child {
+  background: var(--line);
+  width: 65%;
+  border-radius: 2px;
+}
+.appearance-preview-content > span {
+  display: flex;
+  gap: 6px;
+}
+.appearance-preview-content > span i,
+.appearance-preview-content > i:last-child {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  flex: 1;
+}
+.appearance-choice-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  padding: 13px 4px 4px;
+}
+.appearance-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 10px;
+}
+.is-selected .appearance-check {
+  background: var(--teal);
+  color: #fff;
+  border-color: var(--teal);
+}
+.appearance-choice > small {
+  padding: 0 4px;
+}
+.appearance-color {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.appearance-color label {
+  font-weight: 600;
+}
+.appearance-color input {
+  width: 46px;
+  height: 34px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px;
+  cursor: pointer;
+}
+.appearance-color span {
+  color: var(--muted);
+}
+.appearance-saved {
+  margin-top: 24px;
+}
+@media (max-width: 1150px) {
+  .appearance-backgrounds {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .appearance-backgrounds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .appearance-panel {
+    padding: 20px;
+  }
+  .appearance-mode {
+    flex: 1;
+    min-width: 160px;
+  }
+}
+@media (max-width: 380px) {
+  .appearance-backgrounds {
+    grid-template-columns: 1fr;
+  }
+}

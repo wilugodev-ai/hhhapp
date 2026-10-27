@@ -2,6 +2,7 @@
 @import "./profit-loss.css";
 @import "./mlr.css";
 @import "./admin.css";
+@import "./appearance.css";
 
 :root {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
