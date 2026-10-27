@@ -38,13 +38,34 @@ The directory supports name/email search, status filters, and pages of 25. Audit
 
 Development adds `sysadmin@hhh.local` (System Administrator) and `summit-admin@hhh.local` (Organization Administrator for Summit). Both use the documented synthetic demo password. Existing users, role changes, and deactivations are preserved by subsequent seeding.
 
-For a fresh non-demo deployment, use an operator-controlled connection with migration/provisioning privileges. Set `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Hhh`, `Bootstrap__Email`, `Bootstrap__Name`, and `Bootstrap__Organization`, then run:
+For a fresh non-demo deployment, the operator sets `ASPNETCORE_ENVIRONMENT=Production` and `ConnectionStrings__Hhh`, then applies migrations using a provisioning identity. Start the deployed application with an API-only `Bootstrap__SetupKey` environment variable. Generate a random key of at least 32 characters; this PowerShell example creates a 256-bit key without printing it:
+
+```powershell
+$setupRandom = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$setupBytes = New-Object byte[] 32
+try {
+    $setupRandom.GetBytes($setupBytes)
+    $env:Bootstrap__SetupKey = [Convert]::ToBase64String($setupBytes)
+} finally {
+    $setupRandom.Dispose()
+}
+```
+
+The key must be 32–256 characters with no whitespace. Configure it on the API process through the deployment secret mechanism, and provide it privately to the first administrator. It is never returned by the API, embedded in the Angular build, or included in a URL. Use HTTPS for deployed setup. There is no default setup key.
+
+The sign-in page shows **Set up your administrator account** while setup is enabled. Open `/setup`, enter the installation key, name, work email, organization name, and password. The API creates the organization and system administrator, activates the account, records audit events, and permanently closes setup in one transaction. The administrator then signs in. The supplied email is not marked verified; email delivery/verification remains a later feature.
+
+`InstallationStates` contains the permanent completion marker. Once completed, changing/deleting administrator roles, changing the key, or restarting the server cannot reopen setup. Existing installations and synthetic demo accounts close setup during migration/seeding. Remove the setup-key environment variable after installation. Incorrect keys return 403; closed/unconfigured setup returns 404; requests are CSRF-protected and limited to five per IP per minute by default. The key is compared using fixed-length hashes and a timing-resistant comparison.
+
+### CLI provisioning
+
+The operator can also set `Bootstrap__Email`, `Bootstrap__Name`, and `Bootstrap__Organization`, then run:
 
 ```powershell
 dotnet run --project src/Hhh.Api --no-launch-profile -- --bootstrap-admin
 ```
 
-The command applies migrations, initializes fixed roles, creates the first system administrator and organization, and exits. It prints one private setup path to open on the deployed frontend. Treat the output as a credential and avoid shared logs. There is no bootstrap HTTP endpoint or default production password. Once a system administrator completes setup, bootstrap cannot replace them. Before initial setup is completed, rerunning with the same email replaces a lost/expired first link. Normal `--migrate` also initializes roles without enabling demo users.
+The command applies migrations, initializes fixed roles, creates the first system administrator and organization, and exits. It prints one private setup path to open on the deployed frontend. Treat the output as a credential and avoid shared logs. There is no default production password. Once setup is complete, the command cannot replace the administrator. Before initial activation, rerunning with the same email replaces a lost/expired first link. If browser setup is enabled, it can finish a pending CLI account using the original email; otherwise the private activation link completes it. Both paths close the same permanent installation marker. Normal `--migrate` initializes roles without enabling demo users.
 
 ## Remaining account features
 

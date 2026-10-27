@@ -22,11 +22,12 @@ public sealed record AccessVersionRequest(int ExpectedVersion);
 public sealed record CreateOrganizationRequest(string Name, string AdminEmail, string AdminName);
 public sealed record UpdateOrganizationRequest(string Name, bool IsActive, int ExpectedVersion);
 public sealed record AcceptInvitationRequest(string UserId, string Token, string Password);
+public sealed record FirstAdministratorRequest(string? SetupKey, string Email, string DisplayName, string OrganizationName, string? Password);
 public sealed record AdminUserRow(string Id, string Email, string DisplayName, string Role, bool IsActive,
     bool InvitationPending, DateTimeOffset? InvitationExpiresAt, DateTimeOffset? LockoutEnd, int Version);
 public sealed record InvitationResult(AdminUserRow User, string SetupPath, DateTimeOffset ExpiresAt);
 
-public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> users)
+public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> users, IConfiguration configuration)
 {
     public static bool IsSystem(ClaimsPrincipal actor) => actor.IsInRole(Roles.SystemAdministrator);
     private static string ActorId(ClaimsPrincipal actor) => actor.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -284,18 +285,82 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
             || !CryptographicOperations.FixedTimeEquals(hash, Convert.FromHexString(user.InvitationHash))
             || !await db.Organizations.AnyAsync(o => o.Id == user.OrganizationId && o.IsActive, ct))
             throw new ArgumentException("This setup link is invalid or expired. Ask your administrator for a new link.");
-        user.PasswordHash = null;
-        user.InvitationPending = false; user.InvitationHash = null; user.InvitationExpiresAt = null; user.EmailConfirmed = true;
-        user.LockoutEnd = null; user.AccessFailedCount = 0; user.AccessVersion++;
-        Ensure(await users.AddPasswordAsync(user, request.Password));
-        Audit(user.OrganizationId, user.Id, "auth.account.setup", new { subjectId = user.Id });
+        await CompleteAccount(user, request.Password, true, ct);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
     }
 
-    // Invoked only by the operator's one-off CLI command, never exposed as an HTTP endpoint.
+    private async Task CompleteAccount(AppUser user, string password, bool emailConfirmed, CancellationToken ct)
+    {
+        user.PasswordHash = null;
+        user.InvitationPending = false; user.InvitationHash = null; user.InvitationExpiresAt = null;
+        user.EmailConfirmed = emailConfirmed;
+        user.LockoutEnd = null; user.AccessFailedCount = 0; user.AccessVersion++;
+        Ensure(await users.AddPasswordAsync(user, password));
+        if (await users.IsInRoleAsync(user, Roles.SystemAdministrator))
+        {
+            var installation = await db.InstallationStates.SingleAsync(s => s.Id == 1, ct);
+            installation.AdministratorSetupCompletedAt ??= DateTimeOffset.UtcNow;
+        }
+        Audit(user.OrganizationId, user.Id, "auth.account.setup", new { subjectId = user.Id });
+    }
+
+    private string? ConfiguredSetupKey()
+    {
+        var key = configuration["Bootstrap:SetupKey"];
+        return key is { Length: >= 32 and <= 256 } && !key.Any(char.IsWhiteSpace) ? key : null;
+    }
+
+    private async Task<bool> SetupClosed(CancellationToken ct)
+    {
+        if (await db.InstallationStates.AnyAsync(s => s.Id == 1 && s.AdministratorSetupCompletedAt != null, ct)) return true;
+        var systemRoles = db.Roles.Where(r => r.Name == Roles.SystemAdministrator).Select(r => r.Id);
+        var existing = db.Users.Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id && systemRoles.Contains(ur.RoleId)));
+        return await existing.CountAsync(ct) > 1 || await existing.AnyAsync(u => !u.IsActive || !u.InvitationPending || u.PasswordHash != null
+            || !db.Organizations.Any(o => o.Id == u.OrganizationId && o.IsActive), ct);
+    }
+
+    public async Task<bool> SetupAvailable(CancellationToken ct) => ConfiguredSetupKey() is not null && !await SetupClosed(ct);
+
+    public async Task CreateFirstAdministrator(FirstAdministratorRequest request, CancellationToken ct)
+    {
+        if (!await SetupAvailable(ct)) throw new AdministrationException(404, "First-administrator setup is unavailable.");
+        ValidateSetupKey(request.SetupKey);
+        await using var transaction = await Lock(ct);
+        // Recheck inside the same database lock used by CLI bootstrap and account activation.
+        if (!await SetupAvailable(ct)) throw new AdministrationException(404, "First-administrator setup is unavailable.");
+        ValidateSetupKey(request.SetupKey);
+        if (request.Password is null || request.Password.Length is < 12 or > 256) throw new ArgumentException("Use a password of 12 to 256 characters.");
+        var name = Name(request.DisplayName); var organization = Name(request.OrganizationName);
+        var invitation = await BootstrapCore(request.Email, name, organization, ct);
+        var user = await db.Users.SingleAsync(u => u.Id == invitation.User.Id, ct);
+        user.DisplayName = name;
+        var org = await db.Organizations.SingleAsync(o => o.Id == user.OrganizationId, ct); org.Name = organization;
+        await CompleteAccount(user, request.Password, false, ct);
+        Audit(org.Id, user.Id, "admin.platform.browser-setup.completed", new { subjectId = user.Id });
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+    }
+
+    private void ValidateSetupKey(string? supplied)
+    {
+        var expected = ConfiguredSetupKey();
+        if (expected is null) throw new AdministrationException(404, "First-administrator setup is unavailable.");
+        if (supplied is null || supplied.Length is < 32 or > 256 || !CryptographicOperations.FixedTimeEquals(
+            SHA256.HashData(Encoding.UTF8.GetBytes(expected)), SHA256.HashData(Encoding.UTF8.GetBytes(supplied))))
+            throw new AdministrationException(403, "The setup key is not valid. Use the key provided for this installation.");
+    }
+
+    // The operator's CLI command remains available; the browser must supply its installation key.
     public async Task<InvitationResult> Bootstrap(string email, string name, string organization, CancellationToken ct)
     {
         await using var transaction = await Lock(ct);
+        var invitation = await BootstrapCore(email, name, organization, ct);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return invitation;
+    }
+
+    private async Task<InvitationResult> BootstrapCore(string email, string name, string organization, CancellationToken ct)
+    {
+        if (await db.InstallationStates.AnyAsync(s => s.Id == 1 && s.AdministratorSetupCompletedAt != null, ct))
+            throw new AdministrationException(409, "Administrator setup has already been completed.");
         var systemRoles = db.Roles.Where(r => r.Name == Roles.SystemAdministrator).Select(r => r.Id);
         var address = Email(email);
         var existing = await db.Users.Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id && systemRoles.Contains(ur.RoleId))).ToListAsync(ct);
@@ -310,7 +375,7 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
             var replacement = Issue(pending, [Roles.SystemAdministrator]);
             Ensure(await users.UpdateSecurityStampAsync(pending));
             Audit(pending.OrganizationId, pending.Id, "admin.platform.bootstrap-link-reissued", new { subjectId = pending.Id });
-            await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return replacement;
+            return replacement;
         }
         if (await users.FindByEmailAsync(address) is not null) throw new ArgumentException("The bootstrap email is already registered.");
         var org = new Organization { Id = Guid.NewGuid(), Name = Name(organization) };
@@ -319,7 +384,6 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
         db.Organizations.Add(org); await db.SaveChangesAsync(ct);
         Ensure(await users.CreateAsync(user)); Ensure(await users.AddToRoleAsync(user, Roles.SystemAdministrator));
         Audit(org.Id, user.Id, "admin.platform.bootstrapped", new { subjectId = user.Id, org.Name });
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         return invitation;
     }
 }

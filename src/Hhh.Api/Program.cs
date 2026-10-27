@@ -67,6 +67,8 @@ builder.Services.AddRateLimiter(o =>
     o.RejectionStatusCode = 429;
     o.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue<int?>("Authentication:LoginRequestsPerMinute") ?? 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy("setup", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue<int?>("Authentication:SetupRequestsPerMinute") ?? 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -122,7 +124,7 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }));
 app.MapGet("/health/ready", async (HhhDbContext db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503));
 
-app.MapGet("/api/auth/csrf", (HttpContext ctx, IAntiforgery antiforgery) =>
+app.MapGet("/api/auth/csrf", async (HttpContext ctx, IAntiforgery antiforgery, AdministrationService administration, CancellationToken ct) =>
 {
     var tokens = antiforgery.GetAndStoreTokens(ctx);
     ctx.Response.Cookies.Append("XSRF-TOKEN", tokens.RequestToken!, new CookieOptions
@@ -132,8 +134,14 @@ app.MapGet("/api/auth/csrf", (HttpContext ctx, IAntiforgery antiforgery) =>
         Secure = !app.Environment.IsDevelopment(),
         Path = "/"
     });
-    return Results.Ok(new { demoEnabled = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled") });
+    return Results.Ok(new { demoEnabled = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"), setupAvailable = await administration.SetupAvailable(ct) });
 });
+
+app.MapPost("/api/auth/setup", async (FirstAdministratorRequest request, AdministrationService administration, CancellationToken ct) =>
+{
+    await administration.CreateFirstAdministrator(request, ct);
+    return Results.Ok(new { message = "Your administrator account is ready. Sign in to continue." });
+}).RequireRateLimiting("setup");
 
 app.MapPost("/api/auth/login", async (LoginRequest request, UserManager<AppUser> users, SignInManager<AppUser> signIn, HhhDbContext db) =>
 {

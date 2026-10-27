@@ -34,6 +34,8 @@ Forecasting, scenario modeling, HHH Intelligence, recurring imports, regulatory 
 
 Administration now supports a searchable user directory, role and activation changes, private expiring setup/recovery links, session revocation, lockout reset, and paginated audit details. System administrators can provision and manage organizations. Version checks, transactional last-administrator protection, and per-request account validation enforce access changes across the API. See [administration and first-admin setup](docs/administration.md).
 
+Fresh installations also have a `/setup` screen, linked from sign-in when the operator enables it with an API-side `Bootstrap__SetupKey`. It creates the first administrator and organization atomically and closes permanently after activation. The existing demo is already configured, so setup stays closed there. See [installation setup instructions](docs/administration.md#first-system-administrator).
+
 ## Run locally
 
 Prerequisites: .NET 10 SDK, Node.js 24.15 or later in the Node 24 release line, and SQL Server 2019 or later. The default development connection uses Windows authentication to `.\SQLEXPRESS01` and a dedicated `HhhDevelopment` database. Override it using `ConnectionStrings__Hhh` for another instance. Use an account that can create this development database and apply migrations.

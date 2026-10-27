@@ -124,6 +124,16 @@ public static class SyntheticSeed
                 await db.SaveChangesAsync();
             }
         }
+        var installation = await db.InstallationStates.SingleAsync(s => s.Id == 1);
+        if (installation.AdministratorSetupCompletedAt is null && await (from ur in db.UserRoles
+            join role in db.Roles on ur.RoleId equals role.Id
+            join user in db.Users on ur.UserId equals user.Id
+            where role.Name == Roles.SystemAdministrator && (user.PasswordHash != null || !user.InvitationPending)
+            select user.Id).AnyAsync())
+        {
+            installation.AdministratorSetupCompletedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
     }
 
     private static async Task Ensure(Task<IdentityResult> task)

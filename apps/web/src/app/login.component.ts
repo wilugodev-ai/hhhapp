@@ -59,6 +59,12 @@ import { IconComponent } from "./icon.component";
             {{ busy() ? "Signing in…" : "Sign in" }} <hhh-icon name="arrow" />
           </button>
         </form>
+        @if (api.setupAvailable()) {
+          <div class="setup-entry">
+            <span>New installation?</span
+            ><a routerLink="/setup">Set up your administrator account</a>
+          </div>
+        }
         @if (api.demoEnabled()) {
           <div class="login-divider"><span>Explore with sample data</span></div>
           <button

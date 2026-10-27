@@ -314,6 +314,28 @@ namespace Hhh.Infrastructure.Migrations
                     b.ToTable("Snapshots");
                 });
 
+            modelBuilder.Entity("Hhh.Domain.InstallationState", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("AdministratorSetupCompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InstallationStates", t =>
+                        {
+                            t.HasCheckConstraint("CK_InstallationState_Singleton", "[Id] = 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1
+                        });
+                });
+
             modelBuilder.Entity("Hhh.Domain.MembershipFact", b =>
                 {
                     b.Property<long>("SnapshotId")

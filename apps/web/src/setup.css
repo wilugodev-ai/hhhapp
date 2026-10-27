@@ -1,0 +1,29 @@
+.setup-entry {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 20px;
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.setup-entry span {
+  color: var(--muted);
+}
+.setup-entry a {
+  color: var(--teal);
+  font-weight: 600;
+}
+.setup-entry a:hover {
+  text-decoration: underline;
+}
+.setup-password-help {
+  display: block;
+  margin: -8px 0 17px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.setup-check {
+  margin-top: 16px;
+  width: 100%;
+}

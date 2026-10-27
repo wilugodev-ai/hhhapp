@@ -51,3 +51,9 @@ The additive `MlrDefinitionsAndTargets` migration stores one `MlrDefinition` per
 The additive `UserAdministration` migration adds active flags and access concurrency versions to organizations/users, account creation time, pending setup status, and nullable setup token hash/expiry. Existing accounts and organizations default to active, and versions start at one. A scoped organization/display-name index supports the user directory. Identity continues to store password hashes and roles; plaintext setup links are never persisted.
 
 Access mutations use a transaction-owned SQL Server application lock plus optimistic versions. User/role changes and audit records commit atomically. There are no hard-delete administration routes. Organization deactivation rotates user security stamps and invalidates setup links. See [administration rules](administration.md).
+
+## Installation completion
+
+The `InitialAdministratorSetup` migration adds the singleton `InstallationStates` row (ID 1, enforced by a check constraint) and its nullable `AdministratorSetupCompletedAt`. Existing installations with an established system administrator are marked complete during migration; development seeding also closes setup for the synthetic platform administrator. Setup keys are deployment secrets and are not stored in this table.
+
+Browser setup creates the first organization/user/role, password hash, audit records, and completion marker under the access-administration transaction lock. CLI account activation closes the same marker. Removing roles or changing configuration never clears it. Setup integration tests use the separate `HhhFirstAdminSetupTests` database with demo seeding disabled; their fixture cleanup/reset is restricted to that named test database.

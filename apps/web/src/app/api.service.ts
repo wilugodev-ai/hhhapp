@@ -21,11 +21,15 @@ export class ApiService {
   private http = inject(HttpClient);
   user = signal<User | null>(null);
   demoEnabled = signal(false);
+  setupAvailable = signal(false);
   async csrf() {
     const config = await firstValueFrom(
-      this.http.get<{ demoEnabled: boolean }>("/api/auth/csrf"),
+      this.http.get<{ demoEnabled: boolean; setupAvailable?: boolean }>(
+        "/api/auth/csrf",
+      ),
     );
     this.demoEnabled.set(config.demoEnabled);
+    this.setupAvailable.set(config.setupAvailable === true);
   }
   async restore() {
     await this.csrf();
@@ -35,6 +39,17 @@ export class ApiService {
       if (!(error instanceof HttpErrorResponse && error.status === 401))
         throw error;
     }
+  }
+  async completeAdministratorSetup(body: {
+    setupKey: string;
+    email: string;
+    displayName: string;
+    organizationName: string;
+    password: string;
+  }) {
+    await this.csrf();
+    await firstValueFrom(this.http.post("/api/auth/setup", body));
+    this.setupAvailable.set(false);
   }
   async login(email: string, password: string, demo = false) {
     await this.csrf();

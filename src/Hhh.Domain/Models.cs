@@ -9,6 +9,12 @@ public sealed class Organization
     public int AccessVersion { get; set; } = 1;
 }
 
+public sealed class InstallationState
+{
+    public int Id { get; set; } = 1;
+    public DateTimeOffset? AdministratorSetupCompletedAt { get; set; }
+}
+
 public enum DimensionKind { Payer, MedicalCenter, Provider, Contract, Plan, LineOfBusiness, Region }
 
 public sealed class Dimension

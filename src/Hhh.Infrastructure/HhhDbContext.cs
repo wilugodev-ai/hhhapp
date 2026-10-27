@@ -20,6 +20,7 @@ public sealed class AppUser : IdentityUser
 public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : IdentityDbContext<AppUser>(options)
 {
     public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<InstallationState> InstallationStates => Set<InstallationState>();
     public DbSet<Dimension> Dimensions => Set<Dimension>();
     public DbSet<SourceBatch> SourceBatches => Set<SourceBatch>();
     public DbSet<FinancialSnapshot> Snapshots => Set<FinancialSnapshot>();
@@ -37,6 +38,9 @@ public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : Ident
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        b.Entity<InstallationState>().HasData(new InstallationState { Id = 1 });
+        b.Entity<InstallationState>().Property(s => s.Id).ValueGeneratedNever();
+        b.Entity<InstallationState>().ToTable(t => t.HasCheckConstraint("CK_InstallationState_Singleton", "[Id] = 1"));
         b.Entity<Organization>().Property(x => x.Name).HasMaxLength(180);
         b.Entity<Organization>().Property(x => x.MlrTarget).HasPrecision(5, 2);
         b.Entity<AppUser>().HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
