@@ -79,6 +79,44 @@ public sealed class AuditEvent
     public DateTimeOffset OccurredAt { get; set; }
 }
 
+public sealed class BudgetPlan
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = "";
+    public int Year { get; set; }
+    public string Version { get; set; } = "";
+    public DateTimeOffset ApprovedAt { get; set; }
+    public bool IsSynthetic { get; set; }
+    public List<BudgetSnapshot> Snapshots { get; set; } = [];
+}
+
+public sealed class BudgetSnapshot
+{
+    public long Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid BudgetPlanId { get; set; }
+    public DateOnly Month { get; set; }
+    public Guid PayerId { get; set; }
+    public Guid MedicalCenterId { get; set; }
+    public Guid ProviderId { get; set; }
+    public Guid ContractId { get; set; }
+    public Guid PlanId { get; set; }
+    public Guid LineOfBusinessId { get; set; }
+    public Guid RegionId { get; set; }
+    public int PlannedMemberMonths { get; set; }
+    public List<BudgetLine> Lines { get; set; } = [];
+}
+
+public sealed class BudgetLine
+{
+    public long Id { get; set; }
+    public long BudgetSnapshotId { get; set; }
+    public string Category { get; set; } = "";
+    public string Type { get; set; } = "";
+    public decimal Amount { get; set; }
+}
+
 public static class Roles
 {
     public const string SystemAdministrator = "System Administrator";

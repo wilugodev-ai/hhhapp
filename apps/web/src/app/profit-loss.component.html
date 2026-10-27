@@ -1,0 +1,517 @@
+<section
+  class="pnl-controls panel"
+  aria-label="Profit and loss period selection"
+>
+  <div class="period-tabs" role="group" aria-label="Reporting period">
+    @for (
+      mode of [
+        { id: "month", name: "Monthly" },
+        { id: "quarter", name: "Quarterly" },
+        { id: "year", name: "Yearly" },
+      ];
+      track mode.id
+    ) {
+      <button
+        [class.selected]="period === mode.id"
+        [attr.aria-pressed]="period === mode.id"
+        (click)="period = $any(mode.id); periodChanged()"
+      >
+        {{ mode.name }}
+      </button>
+    }
+  </div>
+  @if (period === "month") {
+    <label
+      >Effective month<select
+        [(ngModel)]="month"
+        (ngModelChange)="monthChanged()"
+        aria-label="P&L effective month"
+      >
+        @for (value of metadata().months; track value) {
+          <option [value]="value">{{ label(value) }}</option>
+        }
+      </select></label
+    >
+  } @else {
+    <label
+      >Year<select
+        [(ngModel)]="year"
+        (ngModelChange)="periodChanged()"
+        aria-label="P&L year"
+      >
+        @for (value of metadata().years; track value) {
+          <option [value]="value">{{ value }}</option>
+        }
+      </select></label
+    >
+    @if (period === "quarter") {
+      <label
+        >Quarter<select
+          [(ngModel)]="quarter"
+          (ngModelChange)="load()"
+          aria-label="P&L quarter"
+        >
+          <option value="1">Q1 · Jan–Mar</option>
+          <option value="2">Q2 · Apr–Jun</option>
+          <option value="3">Q3 · Jul–Sep</option>
+          <option value="4">Q4 · Oct–Dec</option>
+        </select></label
+      >
+    }
+  }
+  <label
+    >Budget plan<select
+      [(ngModel)]="budgetPlan"
+      (ngModelChange)="load()"
+      aria-label="Budget plan"
+    >
+      <option value="">Latest approved plan</option>
+      @for (plan of plans(); track plan.id) {
+        <option [value]="plan.id">{{ plan.name }} · {{ plan.version }}</option>
+      }
+    </select></label
+  >
+  <button
+    class="btn btn-outline"
+    (click)="export()"
+    [disabled]="busy() || !report() || exporting()"
+  >
+    <hhh-icon name="download" /> {{ exporting() ? "Exporting…" : "Export P&L" }}
+  </button>
+</section>
+@if (notice()) {
+  <div class="notice-banner" role="status">
+    {{ notice()
+    }}<button
+      class="icon-button"
+      (click)="notice.set('')"
+      aria-label="Dismiss P&L message"
+    >
+      <hhh-icon name="close" />
+    </button>
+  </div>
+}
+@if (error()) {
+  <div class="error-banner" role="alert">
+    {{ error()
+    }}<button class="btn btn-outline" (click)="load()">Try again</button>
+  </div>
+}
+@if (busy()) {
+  <div class="loading-state" role="status">
+    <span class="loader"></span> Reconciling actuals and budget…
+  </div>
+}
+@if (!busy() && report(); as r) {
+  <div class="pnl-period-heading">
+    <div>
+      <span class="eyebrow">ACTUALS & APPROVED BUDGET</span>
+      <h2>{{ title() }}</h2>
+      <p>
+        {{ r.coverage.actualMonths.length }} of
+        {{ r.coverage.requestedMonths.length }} months with actuals ·
+        {{ r.coverage.actualSnapshots }} cohort snapshots
+      </p>
+    </div>
+    <span class="tag">{{
+      r.budgetPlan
+        ? r.budgetPlan.name + " · " + r.budgetPlan.version
+        : "No approved budget"
+    }}</span>
+  </div>
+  @if (r.coverage.isPartial) {
+    <div class="coverage-banner">
+      <hhh-icon name="info" />
+      <div>
+        <strong>{{
+          r.coverage.actualMonths.length
+            ? "Partial period"
+            : "Actuals unavailable"
+        }}</strong>
+        <p>
+          {{
+            r.coverage.actualMonths.length
+              ? "Statement comparisons include only months with actuals, through " +
+                label(r.comparedThroughMonth!) +
+                ". Future budget months are shown separately in the chart."
+              : "This period has no actual financial results. Available plan amounts are shown as budget; variances are unavailable."
+          }}
+        </p>
+      </div>
+    </div>
+  }
+  @if (!r.coverage.budgetAvailable) {
+    <div class="coverage-banner">
+      <hhh-icon name="info" />
+      <div>
+        <strong>Budget comparison unavailable</strong>
+        <p>
+          {{
+            r.budgetPlan
+              ? "The selected plan does not fully match the financial months, cohorts, and components. Missing coverage is not treated as zero."
+              : "No approved budget plan is available for the selected year."
+          }}
+        </p>
+      </div>
+    </div>
+  }
+  <section class="pnl-summary-grid">
+    @for (row of r.totals; track row.type) {
+      <article class="panel" [class.pnl-profit-card]="row.type === 'profit'">
+        <span>{{ row.category }}</span
+        ><strong>{{ money(row.actual, true) }}</strong>
+        <div>
+          <small>Budget {{ money(row.budget, true) }}</small
+          ><span
+            class="variance-text"
+            [attr.data-status]="row.budgetVariance.status"
+            >{{ signed(row.budgetVariance.amount) }}</span
+          >
+        </div>
+      </article>
+    }
+  </section>
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Profit & loss statement</h2>
+        <p>
+          {{ r.organization }} · USD · Select a component to inspect cohorts and
+          source lineage
+        </p>
+      </div>
+      <span class="tag">{{
+        r.budgetPlan?.isSynthetic ? "Synthetic budget" : "Financial results"
+      }}</span>
+    </div>
+    <div class="table-scroll">
+      <table class="pnl-variance-table">
+        <thead>
+          <tr>
+            <th>Financial component</th>
+            <th class="numeric">Actual</th>
+            <th class="numeric">Budget</th>
+            <th class="numeric">Actual − budget</th>
+            <th class="numeric">Variance %</th>
+            <th>Performance</th>
+            <th class="numeric">Prior year</th>
+            <th class="numeric">YoY %</th>
+            <th class="numeric">{{ comparisonLabel() }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (section of sections; track section.type) {
+            <tr class="table-section">
+              <td colspan="9">{{ section.title }}</td>
+            </tr>
+            @for (row of lines(section.type); track row.category) {
+              <tr
+                [class.selected-component]="
+                  selected()?.category === row.category &&
+                  selected()?.type === row.type
+                "
+              >
+                <td>
+                  <button
+                    class="pnl-component-button"
+                    (click)="open(row)"
+                    [attr.aria-expanded]="
+                      selected()?.category === row.category &&
+                      selected()?.type === row.type
+                    "
+                  >
+                    <hhh-icon name="right" />{{ row.category }}
+                    @if (row.category === "IBNR") {
+                      <span class="tag">Estimate</span>
+                    }
+                  </button>
+                </td>
+                <td class="numeric">{{ money(row.actual) }}</td>
+                <td class="numeric">{{ money(row.budget) }}</td>
+                <td
+                  class="numeric variance-text"
+                  [attr.data-status]="row.budgetVariance.status"
+                >
+                  {{ signed(row.budgetVariance.amount) }}
+                </td>
+                <td class="numeric">
+                  {{ signed(row.budgetVariance.percent, true) }}
+                </td>
+                <td>
+                  <span
+                    class="variance-badge"
+                    [attr.data-status]="row.budgetVariance.status"
+                    >{{ status(row) }}</span
+                  >
+                </td>
+                <td class="numeric">{{ money(row.priorYear) }}</td>
+                <td class="numeric">
+                  {{ signed(row.priorYearChangePercent, true) }}
+                </td>
+                <td class="numeric">{{ money(row.previousPeriod) }}</td>
+              </tr>
+            }
+            @if (total(section.type); as row) {
+              <tr class="subtotal">
+                <td>{{ row.category }}</td>
+                <td class="numeric">{{ money(row.actual) }}</td>
+                <td class="numeric">{{ money(row.budget) }}</td>
+                <td
+                  class="numeric variance-text"
+                  [attr.data-status]="row.budgetVariance.status"
+                >
+                  {{ signed(row.budgetVariance.amount) }}
+                </td>
+                <td class="numeric">
+                  {{ signed(row.budgetVariance.percent, true) }}
+                </td>
+                <td>{{ status(row) }}</td>
+                <td class="numeric">{{ money(row.priorYear) }}</td>
+                <td class="numeric">
+                  {{ signed(row.priorYearChangePercent, true) }}
+                </td>
+                <td class="numeric">{{ money(row.previousPeriod) }}</td>
+              </tr>
+            }
+          }
+          @if (total("profit"); as row) {
+            <tr class="net-total">
+              <td>{{ row.category }}</td>
+              <td class="numeric">{{ money(row.actual) }}</td>
+              <td class="numeric">{{ money(row.budget) }}</td>
+              <td class="numeric">{{ signed(row.budgetVariance.amount) }}</td>
+              <td class="numeric">
+                {{ signed(row.budgetVariance.percent, true) }}
+              </td>
+              <td>{{ status(row) }}</td>
+              <td class="numeric">{{ money(row.priorYear) }}</td>
+              <td class="numeric">
+                {{ signed(row.priorYearChangePercent, true) }}
+              </td>
+              <td class="numeric">{{ money(row.previousPeriod) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="panel-footnote">
+      <hhh-icon name="info" /> Variance = actual − budget. Higher revenue and
+      profit are favorable; lower expenses are favorable. Percent changes use
+      the absolute comparison amount. Undefined comparisons show —.
+    </div>
+    @if (
+      !r.coverage.priorYearAvailable || !r.coverage.previousPeriodAvailable
+    ) {
+      <div class="panel-footnote">
+        <hhh-icon name="calendar" /> Prior-period comparisons require complete
+        matching cohorts and components. A report-month filter can remove
+        comparable historical snapshots.
+      </div>
+    }
+  </section>
+  @if (selected(); as component) {
+    <section
+      class="panel pnl-drilldown"
+      aria-label="Financial component drilldown"
+    >
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">COMPONENT DRILLDOWN</span>
+          <h2>{{ component.category }}</h2>
+          <p>{{ title() }} · Reconciles to the selected statement component</p>
+        </div>
+        <div class="pnl-drill-actions">
+          <label
+            >Group by<select
+              [(ngModel)]="groupBy"
+              (ngModelChange)="groupChanged()"
+              aria-label="Drilldown grouping"
+            >
+              @for (group of groups; track group.id) {
+                <option [value]="group.id">{{ group.name }}</option>
+              }
+            </select></label
+          ><button
+            class="icon-button"
+            (click)="close()"
+            aria-label="Close component drilldown"
+          >
+            <hhh-icon name="close" />
+          </button>
+        </div>
+      </div>
+      @if (detailBusy()) {
+        <div class="loading-state compact-loading" role="status">
+          <span class="loader"></span> Loading component detail…
+        </div>
+      }
+      @if (detailError()) {
+        <div class="error-banner" role="alert">
+          {{ detailError()
+          }}<button class="btn btn-outline" (click)="loadDetails()">
+            Retry detail
+          </button>
+        </div>
+      }
+      @if (!detailBusy() && details(); as d) {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>{{ groupName() }}</th>
+                <th class="numeric">Actual</th>
+                <th class="numeric">Budget</th>
+                <th class="numeric">Actual − budget</th>
+                <th class="numeric">Prior year</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (group of d.groups; track group.id) {
+                <tr>
+                  <td>
+                    <strong>{{ group.name }}</strong>
+                  </td>
+                  <td class="numeric">{{ money(group.values.actual) }}</td>
+                  <td class="numeric">{{ money(group.values.budget) }}</td>
+                  <td
+                    class="numeric variance-text"
+                    [attr.data-status]="group.values.budgetVariance.status"
+                  >
+                    {{ signed(group.values.budgetVariance.amount) }}
+                  </td>
+                  <td class="numeric">{{ money(group.values.priorYear) }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="subtotal">
+                <td>Component total</td>
+                <td class="numeric">{{ money(d.total.actual) }}</td>
+                <td class="numeric">{{ money(d.total.budget) }}</td>
+                <td class="numeric">
+                  {{ signed(d.total.budgetVariance.amount) }}
+                </td>
+                <td class="numeric">{{ money(d.total.priorYear) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="panel-heading">
+          <div>
+            <h2>Cohort detail & source lineage</h2>
+            <p>
+              {{ d.totalRows }} matching snapshots · Page {{ d.page }} of
+              {{ pageCount() }}
+            </p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="cohort-table">
+            <thead>
+              <tr>
+                <th>Effective / report month</th>
+                <th>Payer / medical center</th>
+                <th>Provider / contract</th>
+                <th class="numeric">Actual</th>
+                <th class="numeric">Budget</th>
+                <th class="numeric">Variance</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (
+                row of d.rows;
+                track row.month +
+                  ":" +
+                  row.snapshotId +
+                  ":" +
+                  row.dimensions["payer"] +
+                  ":" +
+                  row.dimensions["center"]
+              ) {
+                <tr>
+                  <td>
+                    {{ label(row.month, true)
+                    }}<small class="cell-sub"
+                      >Report: {{ row.reportMonth || "No actual" }}</small
+                    ><small class="cell-sub"
+                      >GL: {{ row.generalLedgerMonth || "No actual" }}</small
+                    >
+                  </td>
+                  <td>
+                    <strong>{{ row.dimensions["payer"] }}</strong
+                    ><small class="cell-sub">{{
+                      row.dimensions["center"]
+                    }}</small>
+                  </td>
+                  <td>
+                    {{ row.dimensions["provider"]
+                    }}<small class="cell-sub">{{
+                      row.dimensions["contract"]
+                    }}</small
+                    ><small class="cell-sub"
+                      >{{ row.dimensions["plan"] }} ·
+                      {{ row.dimensions["lineOfBusiness"] }} ·
+                      {{ row.dimensions["region"] }}</small
+                    >
+                  </td>
+                  <td class="numeric">{{ money(row.values.actual) }}</td>
+                  <td class="numeric">{{ money(row.values.budget) }}</td>
+                  <td
+                    class="numeric variance-text"
+                    [attr.data-status]="row.values.budgetVariance.status"
+                  >
+                    {{ signed(row.values.budgetVariance.amount) }}
+                  </td>
+                  <td>
+                    {{ row.sourceName || "Budget plan only"
+                    }}<small class="cell-sub"
+                      >Snapshot: {{ row.snapshotId || "No actual" }}</small
+                    ><small class="cell-sub"
+                      >Batch: {{ row.sourceBatchId || "No actual" }}</small
+                    >
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7">No matching cohorts.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="pnl-pagination">
+          <span>{{ d.totalRows }} total rows</span
+          ><button
+            class="btn btn-outline"
+            (click)="nextPage(-1)"
+            [disabled]="page <= 1"
+          >
+            Previous</button
+          ><button
+            class="btn btn-outline"
+            (click)="nextPage(1)"
+            [disabled]="page >= pageCount()"
+          >
+            Next
+          </button>
+        </div>
+      }
+    </section>
+  }
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Actual vs. budget net profit</h2>
+        <p>
+          Budget is an approved operating plan. Months without actuals remain
+          empty; budget is separate from forecasts.
+        </p>
+      </div>
+    </div>
+    <hhh-chart
+      [option]="chart()"
+      label="Monthly actual and approved budget net profit"
+    />
+  </section>
+}

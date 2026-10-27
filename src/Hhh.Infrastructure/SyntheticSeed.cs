@@ -111,6 +111,7 @@ public static class SyntheticSeed
                 await Ensure(users.CreateAsync(user, DemoPassword));
                 await Ensure(users.AddToRoleAsync(user, role));
             }
+            await BudgetSeed.RunAsync(db, orgId, orgIndex);
         }
     }
 

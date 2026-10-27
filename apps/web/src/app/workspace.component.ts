@@ -12,6 +12,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import { ApiService, errorMessage } from "./api.service";
 import { ChartComponent } from "./chart.component";
 import { IconComponent } from "./icon.component";
+import { ProfitLossComponent } from "./profit-loss.component";
 import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
@@ -24,6 +25,7 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     RouterLinkActive,
     IconComponent,
     ChartComponent,
+    ProfitLossComponent,
   ],
   templateUrl: "./workspace.component.html",
 })
@@ -57,6 +59,7 @@ export class WorkspaceComponent implements OnInit {
     lineOfBusiness: "",
     region: "",
   };
+  profitLossFilters = signal<Filters>({});
   target = 85;
   private requestId = 0;
   nav = [
@@ -233,6 +236,7 @@ export class WorkspaceComponent implements OnInit {
       this.search.set("");
       this.mobileMenu.set(false);
       this.notice.set("");
+      if (this.metadata()) void this.load();
       if (section === "administration" && this.canAudit())
         void this.loadAudit();
     });
@@ -252,6 +256,12 @@ export class WorkspaceComponent implements OnInit {
   }
   async load() {
     const request = ++this.requestId;
+    if (this.section() === "profit-loss") {
+      this.profitLossFilters.set({ ...this.filters });
+      this.loading.set(false);
+      this.error.set("");
+      return;
+    }
     this.loading.set(true);
     this.error.set("");
     try {

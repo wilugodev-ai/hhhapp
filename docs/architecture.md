@@ -2,6 +2,8 @@
 
 HHH is an independent multi-organization financial analytics application. Phase 1 implements the complete synthetic-data dashboard workflow. Later phases extend the same API, dimensions, and financial definitions.
 
+The first Phase 2 increment implements period-based P&L drilldowns and persistent approved budget comparisons. `ProfitLossService` applies organization scope, bounds actual reads to the reporting/comparison window, validates matching cohort/component coverage, and shares the same report calculation across the API, detail view, and CSV export. See [P&L rules](profit-loss.md).
+
 ## Boundaries
 
 - `src/Hhh.Api`: ASP.NET Core API, cookie authentication, organization authorization, analytics, exports, health checks, and audit access.

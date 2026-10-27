@@ -87,7 +87,18 @@ public sealed class AnalyticsService(HhhDbContext db)
         };
     }
 
-    public async Task<List<FinancialSnapshot>> Rows(Guid organizationId, AnalyticsFilter f, CancellationToken ct)
+    public Task<DateOnly?> LatestMonth(Guid organizationId, AnalyticsFilter filter, CancellationToken ct)
+        => Query(organizationId, filter).Select(x => (DateOnly?)x.EffectiveMonth).MaxAsync(ct);
+
+    public async Task<List<FinancialSnapshot>> Rows(Guid organizationId, AnalyticsFilter f, CancellationToken ct, DateOnly? from = null, DateOnly? to = null)
+    {
+        var q = Query(organizationId, f);
+        if (from is { } start) q = q.Where(x => x.EffectiveMonth >= start);
+        if (to is { } end) q = q.Where(x => x.EffectiveMonth <= end);
+        return await q.Include(x => x.Membership).Include(x => x.Revenue).Include(x => x.Expenses).AsSplitQuery().ToListAsync(ct);
+    }
+
+    private IQueryable<FinancialSnapshot> Query(Guid organizationId, AnalyticsFilter f)
     {
         var q = db.Snapshots.AsNoTracking().Where(x => x.OrganizationId == organizationId);
         if (f.Payer is { } payer) q = q.Where(x => x.PayerId == payer);
@@ -102,7 +113,7 @@ public sealed class AnalyticsService(HhhDbContext db)
             var date = DateOnly.ParseExact(report + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture);
             q = q.Where(x => x.ReportMonth == date);
         }
-        return await q.Include(x => x.Membership).Include(x => x.Revenue).Include(x => x.Expenses).AsSplitQuery().ToListAsync(ct);
+        return q;
     }
 
     public async Task<object> Metadata(Guid org, CancellationToken ct)

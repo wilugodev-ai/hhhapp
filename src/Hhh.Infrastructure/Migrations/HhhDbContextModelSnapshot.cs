@@ -53,6 +53,140 @@ namespace Hhh.Infrastructure.Migrations
                     b.ToTable("AuditEvents");
                 });
 
+            modelBuilder.Entity("Hhh.Domain.BudgetLine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<long>("BudgetSnapshotId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BudgetSnapshotId", "Type", "Category")
+                        .IsUnique();
+
+                    b.ToTable("Facts_Budget", (string)null);
+                });
+
+            modelBuilder.Entity("Hhh.Domain.BudgetPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ApprovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsSynthetic")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Year", "Version")
+                        .IsUnique();
+
+                    b.ToTable("BudgetPlans");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.BudgetSnapshot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("BudgetPlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LineOfBusinessId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MedicalCenterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Month")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PayerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PlannedMemberMonths")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RegionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "BudgetPlanId");
+
+                    b.HasIndex("OrganizationId", "ContractId");
+
+                    b.HasIndex("OrganizationId", "LineOfBusinessId");
+
+                    b.HasIndex("OrganizationId", "MedicalCenterId");
+
+                    b.HasIndex("OrganizationId", "PayerId");
+
+                    b.HasIndex("OrganizationId", "PlanId");
+
+                    b.HasIndex("OrganizationId", "ProviderId");
+
+                    b.HasIndex("OrganizationId", "RegionId");
+
+                    b.HasIndex("BudgetPlanId", "Month", "PayerId", "MedicalCenterId", "ProviderId", "ContractId", "PlanId", "LineOfBusinessId", "RegionId")
+                        .IsUnique();
+
+                    b.ToTable("BudgetSnapshots");
+                });
+
             modelBuilder.Entity("Hhh.Domain.Dimension", b =>
                 {
                     b.Property<Guid>("Id")
@@ -472,6 +606,83 @@ namespace Hhh.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Hhh.Domain.BudgetLine", b =>
+                {
+                    b.HasOne("Hhh.Domain.BudgetSnapshot", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("BudgetSnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.BudgetPlan", b =>
+                {
+                    b.HasOne("Hhh.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.BudgetSnapshot", b =>
+                {
+                    b.HasOne("Hhh.Domain.BudgetPlan", null)
+                        .WithMany("Snapshots")
+                        .HasForeignKey("OrganizationId", "BudgetPlanId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "ContractId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "LineOfBusinessId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "MedicalCenterId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "PayerId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "PlanId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "ProviderId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "RegionId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Hhh.Domain.Dimension", b =>
                 {
                     b.HasOne("Hhh.Domain.Organization", null)
@@ -634,6 +845,16 @@ namespace Hhh.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.BudgetPlan", b =>
+                {
+                    b.Navigation("Snapshots");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.BudgetSnapshot", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Hhh.Domain.FinancialSnapshot", b =>

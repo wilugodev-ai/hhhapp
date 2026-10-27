@@ -33,3 +33,9 @@ dotnet ef migrations script --idempotent --project src/Hhh.Infrastructure --star
 Review and apply the generated script using a migration identity. Keep the runtime identity separate and least privileged. Set `ConnectionStrings__Hhh` through the environment; do not put production connection strings into tracked files. The `--migrate` API argument is also supported for an explicit one-shot migration process.
 
 The Phase 1 seed provides one report version per effective month. Restatement ingestion and as-of selection across multiple versions must be implemented before loading financial restatements; aggregating multiple report versions together would double count results.
+
+## Phase 2 budget schema
+
+The additive `BudgetPlans` migration introduces versioned organization/year plans, monthly `BudgetSnapshots` at the same seven-dimension cohort grain, and categorized `Facts_Budget` amounts. Composite organization foreign keys isolate plans and dimensions. Unique indexes prevent duplicate plan versions, monthly cohort snapshots, and financial components.
+
+Budgets are independent of actuals. Planned membership is stored once per budget cohort, and budget lines carry decimal amounts. Development startup adds the synthetic plans to existing HHH databases without replacing actuals or settings. Runtime report comparisons match cohorts and components before calculating variance.

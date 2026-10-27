@@ -127,14 +127,16 @@
             }}
           </p>
         </div>
-        <button
-          class="btn btn-outline export-button"
-          (click)="exportCsv()"
-          [disabled]="loading() || exporting() || !data()"
-        >
-          <hhh-icon name="download" />
-          {{ exporting() ? "Exporting…" : "Export report" }}
-        </button>
+        @if (section() !== "profit-loss") {
+          <button
+            class="btn btn-outline export-button"
+            (click)="exportCsv()"
+            [disabled]="loading() || exporting() || !data()"
+          >
+            <hhh-icon name="download" />
+            {{ exporting() ? "Exporting…" : "Export report" }}
+          </button>
+        }
       </div>
       @if (notice()) {
         <div class="notice-banner" role="status">
@@ -158,20 +160,23 @@
           <div class="filter-label">
             <hhh-icon name="filter" /><span>View by</span>
           </div>
-          <label
-            >Effective month<select
-              [(ngModel)]="filters.month"
-              (ngModelChange)="onMonth()"
-              aria-label="Effective month"
+          @if (section() !== "profit-loss") {
+            <label
+              >Effective month<select
+                [(ngModel)]="filters.month"
+                (ngModelChange)="onMonth()"
+                aria-label="Effective month"
+              >
+                <option value="">
+                  {{ filters.year ? "Year to date" : "Latest month" }}
+                </option>
+                @for (month of metadata()?.months; track month) {
+                  <option [value]="month">{{ monthLabel(month) }}</option>
+                }
+              </select></label
             >
-              <option value="">
-                {{ filters.year ? "Year to date" : "Latest month" }}
-              </option>
-              @for (month of metadata()?.months; track month) {
-                <option [value]="month">{{ monthLabel(month) }}</option>
-              }
-            </select></label
-          ><label
+          }
+          <label
             >Payer<select
               [(ngModel)]="filters.payer"
               (ngModelChange)="load()"
@@ -203,17 +208,20 @@
         </section>
         @if (advanced()) {
           <section class="advanced-filters">
-            <label
-              >Year<select
-                [(ngModel)]="filters.year"
-                (ngModelChange)="onYear()"
+            @if (section() !== "profit-loss") {
+              <label
+                >Year<select
+                  [(ngModel)]="filters.year"
+                  (ngModelChange)="onYear()"
+                >
+                  <option value="">Monthly view</option>
+                  @for (year of metadata()?.years; track year) {
+                    <option [value]="year">{{ year }} year to date</option>
+                  }
+                </select></label
               >
-                <option value="">Monthly view</option>
-                @for (year of metadata()?.years; track year) {
-                  <option [value]="year">{{ year }} year to date</option>
-                }
-              </select></label
-            ><label
+            }
+            <label
               >Report month<select
                 [(ngModel)]="filters.reportMonth"
                 (ngModelChange)="load()"
@@ -267,7 +275,16 @@
           ><span>Bringing your financial picture into focus…</span>
         </div>
       }
-      @if (!loading() && data(); as d) {
+      @if (section() === "profit-loss") {
+        @if (metadata(); as meta) {
+          <hhh-profit-loss
+            [filters]="profitLossFilters()"
+            [metadata]="meta"
+            [dark]="dark()"
+          />
+        }
+      }
+      @if (!loading() && section() !== "profit-loss" && data(); as d) {
         @if (isPlanned()) {
           <section class="planned-panel panel">
             <span class="large-feature-icon"
@@ -467,11 +484,7 @@
               {{ number(d.snapshotCount) }} cohort snapshots</span
             ><span><hhh-icon name="shield" /> Actuals · Synthetic data</span>
           </div>
-          @if (
-            section() === "overview" ||
-            section() === "mlr" ||
-            section() === "profit-loss"
-          ) {
+          @if (section() === "overview" || section() === "mlr") {
             <section class="kpi-grid">
               @for (card of cards(); track card.key) {
                 <article
@@ -714,76 +727,6 @@
               <a routerLink="/app/mlr" class="text-link"
                 >Explore MLR <hhh-icon name="arrow"
               /></a>
-            </section>
-          } @else if (section() === "profit-loss") {
-            <section class="panel">
-              <div class="panel-heading">
-                <div>
-                  <h2>Profit & loss statement</h2>
-                  <p>{{ periodLabel() }} · USD · Auditable component totals</p>
-                </div>
-                <span class="tag">Actuals</span>
-              </div>
-              <div class="table-scroll">
-                <table class="pnl-table">
-                  <thead>
-                    <tr>
-                      <th>Financial component</th>
-                      <th class="numeric">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr class="table-section">
-                      <td colspan="2">REVENUE</td>
-                    </tr>
-                    @for (row of revenueRows(); track row.category) {
-                      <tr>
-                        <td>{{ row.category }}</td>
-                        <td class="numeric">{{ money(row.amount) }}</td>
-                      </tr>
-                    }
-                    <tr class="subtotal">
-                      <td>Total revenue</td>
-                      <td class="numeric">{{ money(d.totals.revenue) }}</td>
-                    </tr>
-                    <tr class="table-section">
-                      <td colspan="2">MEDICAL & ADMINISTRATIVE EXPENSES</td>
-                    </tr>
-                    @for (row of expenseRows(); track row.category) {
-                      <tr>
-                        <td>
-                          {{ row.category }}
-                          @if (row.category === "IBNR") {
-                            <span class="tag">Estimate</span>
-                          }
-                        </td>
-                        <td class="numeric">{{ money(row.amount) }}</td>
-                      </tr>
-                    }
-                    <tr class="subtotal">
-                      <td>Total medical expenses</td>
-                      <td class="numeric">
-                        {{ money(d.totals.medicalExpenses) }}
-                      </td>
-                    </tr>
-                    <tr class="subtotal">
-                      <td>Administrative expenses</td>
-                      <td class="numeric">
-                        {{ money(d.totals.administrativeExpenses) }}
-                      </td>
-                    </tr>
-                    <tr class="net-total">
-                      <td>Net profit / loss</td>
-                      <td class="numeric">{{ money(d.totals.netProfit) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="panel-footnote">
-                <hhh-icon name="info" /> Net profit = revenue − medical expenses
-                − administrative expenses. Recoveries reduce medical costs; IBNR
-                is included once.
-              </div>
             </section>
           } @else if (section() === "mlr") {
             <section class="panel">

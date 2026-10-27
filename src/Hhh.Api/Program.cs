@@ -54,11 +54,12 @@ builder.Services.AddAuthorization(o =>
 });
 builder.Services.AddAntiforgery(o => o.HeaderName = "X-XSRF-TOKEN");
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddScoped<ProfitLossService>();
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = 429;
     o.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue<int?>("Authentication:LoginRequestsPerMinute") ?? 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -153,6 +154,21 @@ api.MapPost("/auth/logout", async (HttpContext ctx, HhhDbContext db) =>
 api.MapGet("/analytics/filters", (ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) => analytics.Metadata(Org(principal), ct));
 api.MapGet("/analytics/dashboard", (HttpRequest req, ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) =>
     analytics.Dashboard(Org(principal), AnalyticsFilter.Parse(req.Query), ct));
+api.MapGet("/analytics/profit-loss", (HttpRequest req, ClaimsPrincipal principal, ProfitLossService service, CancellationToken ct) =>
+    service.Report(Org(principal), AnalyticsFilter.Parse(req.Query), ProfitLossOptions.Parse(req.Query), ct));
+api.MapGet("/analytics/profit-loss/details", (HttpRequest req, ClaimsPrincipal principal, ProfitLossService service, CancellationToken ct) =>
+    service.Details(Org(principal), AnalyticsFilter.Parse(req.Query), ProfitLossOptions.Parse(req.Query), ct));
+api.MapGet("/reports/profit-loss.csv", async (HttpRequest req, ClaimsPrincipal principal, ProfitLossService service, HhhDbContext db, CancellationToken ct) =>
+{
+    var report = await service.Report(Org(principal), AnalyticsFilter.Parse(req.Query), ProfitLossOptions.Parse(req.Query), ct);
+    var csv = new StringBuilder("Period,Start month,End month,Compared through,Budget plan,Budget version,Component,Type,Actual,Budget,Actual minus budget,Variance percent,Variance status,Prior year,Prior year change percent,Previous period,Previous period change percent\r\n");
+    foreach (var line in report.Lines.Concat(report.Totals))
+        csv.AppendLine(string.Join(",", new object?[] { report.Period, report.StartMonth, report.EndMonth, report.ComparedThroughMonth,
+            report.BudgetPlan?.Name, report.BudgetPlan?.Version, line.Category, line.Type, line.Actual, line.Budget, line.BudgetVariance.Amount,
+            line.BudgetVariance.Percent, line.BudgetVariance.Status, line.PriorYear, line.PriorYearChangePercent, line.PreviousPeriod, line.PreviousPeriodChangePercent }.Select(Csv)));
+    await Audit(db, principal, "report.profit-loss.csv.exported");
+    return Results.File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv; charset=utf-8", "hhh-profit-loss.csv");
+});
 api.MapGet("/data/batches", async (ClaimsPrincipal principal, HhhDbContext db, CancellationToken ct) =>
 {
     var orgId = Org(principal);

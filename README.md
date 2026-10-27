@@ -18,13 +18,17 @@ The product will bring together executive dashboards, profit and loss analytics,
 | Financial assistant | LLM integration with authorized data and validated analytical queries |
 | Deployment | Docker, Azure-compatible infrastructure, environment-based configuration |
 
-## Working Phase 1
+## Working application
 
 The application now includes a public landing page, sign-in, an interactive executive dashboard, P&L, operational MLR, payer and medical center comparisons, membership trends, filtered CSV reports, source lineage, organization settings, and administrator audit access. Financial metrics come from persistent SQL Server data through the authenticated ASP.NET API.
 
 The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. The seed contains 21 months of synthetic financials for two isolated organizations. No real member records are included.
 
-Forecasting, scenario modeling, HHH Intelligence, recurring imports, budget comparisons, and Excel/PDF exports are planned for later phases and are labeled accordingly. The Python service boundary is documented; no forecasting or LLM service is running yet.
+The first Phase 2 increment adds monthly, quarterly, and yearly P&L statements, persistent approved budget plans, favorable/unfavorable variance, matched prior-year and previous-period comparisons, component drilldowns, paginated cohort lineage, and a P&L CSV export. Payer and center filters preserve the P&L reporting period.
+
+Budget comparisons use the same effective months, cohorts, and financial components as actuals. The 2026 yearly statement compares January–September actuals with January–September budget, while the chart separately shows October–December planned amounts. Missing comparisons remain unavailable. Synthetic budgets use independent planning assumptions and are stored separately from historical results.
+
+Forecasting, scenario modeling, HHH Intelligence, recurring imports, advanced MLR definitions and rolling windows, restatement ingestion, budget authoring, and Excel/PDF exports remain planned. The Python service boundary is documented; no forecasting or LLM service is running yet.
 
 ## Run locally
 
@@ -67,7 +71,7 @@ cd apps/web
 npm run build
 ```
 
-API integration tests use a separate `HhhIntegrationTests` SQL Server database by default. Set `HHH_TEST_CONNECTION_STRING` to use another dedicated test database. Tests apply migrations and seed synthetic data. Financial unit tests verify weighted ratios, zero denominators, IBNR, recoveries, and member-month aggregation. API tests verify isolation, authorization, antiforgery, filters, year selection, CSV output, and logout.
+API integration tests use a separate `HhhIntegrationTests` SQL Server database by default. Set `HHH_TEST_CONNECTION_STRING` to use another dedicated test database. Tests apply migrations and seed synthetic data. Financial tests verify weighted ratios, zero denominators, IBNR, recoveries, member-month aggregation, expense/revenue variance direction, and period boundaries. API tests verify isolation, authorization, antiforgery, filters, year selection, quarterly reconciliation, incomplete-period budget coverage, missing budget components, drilldown pagination, source lineage, CSV output, and logout. The test host raises the sign-in request limit to accommodate independent test accounts; the application default remains 10 requests per minute.
 
 GitHub Actions runs the backend tests against SQL Server and builds the Angular frontend.
 
@@ -99,4 +103,5 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 - [Architecture, data grain, formulas, and development sequence](docs/architecture.md)
 - [API reference](docs/api.md)
 - [Database schema and migrations](docs/database.md)
+- [P&L periods, budgets, variance rules, and drilldowns](docs/profit-loss.md)
 - [Python forecasting service plan](services/forecasting/README.md)

@@ -6,6 +6,7 @@ import {
 } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { Batch, Dashboard, Filters, Metadata, User } from "./models";
+import { ProfitLossDetails, ProfitLossReport } from "./profit-loss.models";
 
 @Injectable({ providedIn: "root" })
 export class ApiService {
@@ -56,6 +57,29 @@ export class ApiService {
   batches() {
     return firstValueFrom(this.http.get<Batch[]>("/api/data/batches"));
   }
+  profitLoss(filters: Filters) {
+    return firstValueFrom(
+      this.http.get<ProfitLossReport>("/api/analytics/profit-loss", {
+        params: this.params(filters),
+      }),
+    );
+  }
+  profitLossDetails(filters: Filters) {
+    return firstValueFrom(
+      this.http.get<ProfitLossDetails>("/api/analytics/profit-loss/details", {
+        params: this.params(filters),
+      }),
+    );
+  }
+  async exportProfitLoss(filters: Filters) {
+    const blob = await firstValueFrom(
+      this.http.get("/api/reports/profit-loss.csv", {
+        params: this.params(filters),
+        responseType: "blob",
+      }),
+    );
+    this.download(blob, "hhh-profit-loss.csv");
+  }
   audit() {
     return firstValueFrom(
       this.http.get<{ id: number; action: string; occurredAt: string }[]>(
@@ -75,10 +99,13 @@ export class ApiService {
         responseType: "blob",
       }),
     );
+    this.download(blob, "hhh-financial-report.csv");
+  }
+  private download(blob: Blob, name: string) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "hhh-financial-report.csv";
+    link.download = name;
     link.click();
     URL.revokeObjectURL(url);
   }
