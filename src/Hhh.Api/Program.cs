@@ -135,7 +135,7 @@ app.MapGet("/api/auth/csrf", async (HttpContext ctx, IAntiforgery antiforgery, A
         Path = "/"
     });
     var setupState = await administration.SetupState(ct);
-    return Results.Ok(new { demoEnabled = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"), setupAvailable = setupState == "available", setupState });
+    return Results.Ok(new { demoEnabled = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"), setupAvailable = setupState == "available", setupState, sampleDataEnabled = app.Configuration.GetValue<bool>("SampleData:Enabled") });
 });
 
 app.MapPost("/api/auth/setup", async (FirstAdministratorRequest request, AdministrationService administration, CancellationToken ct) =>
@@ -290,12 +290,14 @@ api.MapGet("/reports/financial.csv", async (HttpRequest request, ClaimsPrincipal
     var orgId = Org(principal);
     var mlrSelection = await mlrConfiguration.Selection(orgId, ct);
     var names = await db.Dimensions.AsNoTracking().Where(x => x.OrganizationId == orgId).ToDictionaryAsync(x => x.Id, x => x.Name, ct);
+    var sourceIds = rows.Select(s => s.SourceBatchId).Distinct().ToArray();
+    var sourceFlags = await db.SourceBatches.Where(b => b.OrganizationId == orgId && sourceIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, b => b.IsSynthetic, ct);
     var csv = new StringBuilder("Effective month,Report month,General ledger month,Payer,Medical center,Revenue,Medical expenses,Administrative expenses,Net profit,Member months,Operational MLR,Synthetic,MLR definition,MLR definition version,Included MLR revenue,Included MLR medical expenses\r\n");
     foreach (var row in rows.OrderBy(x => x.EffectiveMonth).ThenBy(x => x.PayerId))
     {
         var m = FinancialMetrics.Calculate([row], mlrSelection);
         csv.AppendLine(string.Join(",", new object?[] { row.EffectiveMonth, row.ReportMonth, row.GeneralLedgerMonth, names[row.PayerId], names[row.MedicalCenterId],
-            m.Revenue, m.MedicalExpenses, m.AdministrativeExpenses, m.NetProfit, m.MemberMonths, m.Mlr, true, mlrSelection.Name, mlrSelection.Version, m.MlrRevenue, m.MlrExpenses }.Select(Csv)));
+            m.Revenue, m.MedicalExpenses, m.AdministrativeExpenses, m.NetProfit, m.MemberMonths, m.Mlr, sourceFlags.GetValueOrDefault(row.SourceBatchId), mlrSelection.Name, mlrSelection.Version, m.MlrRevenue, m.MlrExpenses }.Select(Csv)));
     }
     await Audit(db, principal, "report.financial.csv.exported");
     return Results.File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv; charset=utf-8", "hhh-financial-report.csv");

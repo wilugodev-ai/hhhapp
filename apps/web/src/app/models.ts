@@ -42,6 +42,7 @@ export interface Dashboard {
   period: string | null;
   periodMode: "month" | "year";
   isSynthetic: boolean;
+  dataStatus?: "empty" | "sample" | "mixed" | "loaded";
   totals: Metrics;
   endingMembership: number;
   snapshotCount: number;

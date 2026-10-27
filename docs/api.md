@@ -6,8 +6,8 @@ All `/api` responses are non-cacheable. Authentication uses an HttpOnly session 
 | --- | --- | --- |
 | GET | `/health/live` | Process liveness |
 | GET | `/health/ready` | SQL connectivity readiness |
-| GET | `/api/auth/csrf` | Set antiforgery cookies; return `demoEnabled`, `setupAvailable`, and `setupState=available|configured|disabled` |
-| POST | `/api/auth/setup` | Initial installation only: `{ setupKey, email, displayName, organizationName, password }`; creates and activates the first system administrator |
+| GET | `/api/auth/csrf` | Set antiforgery cookies; return `demoEnabled`, `sampleDataEnabled`, `setupAvailable`, and `setupState=available|configured|disabled` |
+| POST | `/api/auth/setup` | Initial installation only: `{ setupKey, email, displayName, organizationName, password, includeSampleData? }`; creates the first system administrator and optional starter financials |
 | POST | `/api/auth/login` | Sign in using `{ "email": "...", "password": "..." }` |
 | POST | `/api/auth/demo` | Development-only synthetic CFO access |
 | POST | `/api/auth/demo-admin` | Development-only synthetic system-administrator access; also requires `Demo:Enabled=true`, CSRF, and the sign-in rate limit |
@@ -56,6 +56,8 @@ Money is represented as decimal USD amounts. Percentages are in percentage units
 ## Errors and controls
 
 First-admin setup requires an operator-configured API `Bootstrap:SetupKey` of 32–256 characters, CSRF, and its own rate limit (five attempts per IP per minute by default). Invalid keys return 403; unavailable/completed setup returns 404. Key and password values are never echoed. Creation and permanent setup closure are serialized in the same database transaction. This endpoint does not sign in the new account; use `/api/auth/login` afterward. See [installation setup](administration.md#first-system-administrator).
+
+`includeSampleData` also applies to new-organization requests and defaults to true for compatible clients; the server only loads starter financials when `SampleData:Enabled` is explicitly enabled. Sample loading creates no identities, preserves existing data/settings, and is audited as `data.starter.loaded`. Dashboard `dataStatus` reports `empty`, `sample`, `mixed`, or `loaded`; CSV source flags come from each scoped source batch.
 
 `400` indicates invalid input or antiforgery failure; `401` requires sign-in; `403` indicates insufficient role privileges; `429` indicates sign-in rate limiting. Login also enforces account lockout. The development demo route returns `404` outside the enabled development environment.
 

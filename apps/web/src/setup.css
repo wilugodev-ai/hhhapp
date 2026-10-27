@@ -31,3 +31,28 @@
   margin-top: 14px !important;
   font-size: 11px !important;
 }
+.login-form .setup-starter {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.login-form .setup-starter input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--teal);
+}
+.setup-starter span {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.setup-starter small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}

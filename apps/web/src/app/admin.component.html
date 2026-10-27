@@ -80,6 +80,34 @@
         }}</span>
       </div>
     </section>
+    <section class="panel admin-editor">
+      <h3>Configure your workspace</h3>
+      <p>Set up your organization, financial rules, and team access.</p>
+      <div class="admin-buttons">
+        @if (isSystem()) {
+          <button
+            type="button"
+            class="btn btn-outline"
+            (click)="editOrganization()"
+            [disabled]="loading() || busy()"
+          >
+            Organization details
+          </button>
+        }
+        <a class="btn btn-outline" routerLink="/app/settings"
+          >Financial settings</a
+        ><a class="btn btn-outline" routerLink="/app/mlr"
+          >MLR definitions & targets</a
+        ><button
+          type="button"
+          class="btn btn-primary"
+          (click)="inviteOpen.set(true)"
+          [disabled]="loading() || busy() || !selected()?.isActive"
+        >
+          Invite your team
+        </button>
+      </div>
+    </section>
     @if (isSystem()) {
       <section class="panel admin-org-picker">
         <label
@@ -113,6 +141,15 @@
           private setup link.
         </p>
         <form (ngSubmit)="createOrganization()" class="admin-form">
+          @if (api.sampleDataEnabled()) {
+            <label class="admin-check"
+              ><input
+                type="checkbox"
+                name="orgIncludeSampleData"
+                [(ngModel)]="orgIncludeSampleData"
+              />Start with sample financial data</label
+            >
+          }
           <label
             >Organization name<input
               name="orgName"

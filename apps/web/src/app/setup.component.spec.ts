@@ -14,8 +14,10 @@ async function render(available = true) {
     setupState: signal(available ? "available" : "unknown"),
     user: signal<User | null>(null),
     demoEnabled: signal(false),
+    sampleDataEnabled: signal(false),
     demoAdministrator: vi.fn(async () => ({})),
     csrf: vi.fn(async () => ({})),
+    login: vi.fn(async () => ({})),
     completeAdministratorSetup: vi.fn(async (_body: unknown) => {
       api.setupAvailable.set(false);
     }),
@@ -48,6 +50,34 @@ afterEach(() => {
   document.documentElement.classList.remove("dark");
 });
 describe("First administrator setup", () => {
+  it("lets the first owner choose starter financial data for their own workspace", async () => {
+    const { api, component, fixture, root } = await render(true);
+    api.sampleDataEnabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(root.textContent).toContain("Start with sample financial data");
+    fill(component);
+    await component.submit();
+    expect(api.completeAdministratorSetup).toHaveBeenCalledWith(
+      expect.objectContaining({ includeSampleData: true }),
+    );
+  });
+  it("takes administrators to configuration after signing in", async () => {
+    const { api } = await render(true);
+    api.user.set({
+      displayName: "Workspace Owner",
+      email: "owner@example.com",
+      organization: "Owner Organization",
+      roles: ["System Administrator"],
+      mlrTarget: 85,
+    });
+    const login = TestBed.createComponent(LoginComponent);
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigateByUrl")
+      .mockResolvedValue(true);
+    await login.componentInstance.login();
+    expect(navigate).toHaveBeenCalledWith("/app/administration");
+  });
   it("explains the configured demo and opens its existing administrator workspace", async () => {
     const { api, component, fixture, root } = await render(false);
     api.setupState.set("configured");
@@ -107,6 +137,7 @@ describe("First administrator setup", () => {
       displayName: "Taylor Owner",
       organizationName: "Horizon Partners",
       password: "Strong-Test-Password1!",
+      includeSampleData: false,
     });
     expect(root.textContent).toContain("Your administrator account is ready");
     expect(root.querySelector('input[name="setupKey"]')).toBeNull();

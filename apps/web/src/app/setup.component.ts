@@ -155,6 +155,21 @@ import { ApiService, errorMessage } from "./api.service";
                   minlength="32"
                   maxlength="256"
               /></label>
+              @if (api.sampleDataEnabled()) {
+                <label class="setup-starter"
+                  ><input
+                    type="checkbox"
+                    name="includeSampleData"
+                    [(ngModel)]="includeSampleData"
+                  /><span
+                    >Start with sample financial data<small
+                      >21 months of financials, budgets, and MLR settings in
+                      your own workspace. Your administrator account uses the
+                      details you enter here.</small
+                    ></span
+                  ></label
+                >
+              }
               <label
                 >Password<input
                   name="password"
@@ -214,6 +229,7 @@ export class SetupComponent implements OnInit {
   setupKey = "";
   password = "";
   confirmation = "";
+  includeSampleData = true;
   constructor() {
     document.documentElement.classList.remove("dark");
   }
@@ -246,6 +262,8 @@ export class SetupComponent implements OnInit {
         displayName: this.displayName,
         organizationName: this.organizationName,
         password: this.password,
+        includeSampleData:
+          this.api.sampleDataEnabled() && this.includeSampleData,
       });
       this.clearSecrets();
       this.complete.set(true);

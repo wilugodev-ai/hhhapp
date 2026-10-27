@@ -8,6 +8,7 @@ import {
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 import { ApiService, errorMessage } from "./api.service";
 import {
   AdminAudit,
@@ -20,7 +21,7 @@ import {
 @Component({
   selector: "hhh-admin",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: "./admin.component.html",
 })
 export class AdminComponent implements OnInit {
@@ -67,6 +68,7 @@ export class AdminComponent implements OnInit {
   orgName = "";
   orgAdminEmail = "";
   orgAdminName = "";
+  orgIncludeSampleData = true;
   orgEditing = signal(false);
   orgEditName = "";
   orgEditActive = true;
@@ -259,6 +261,8 @@ export class AdminComponent implements OnInit {
         name: this.orgName,
         adminEmail: this.orgAdminEmail,
         adminName: this.orgAdminName,
+        includeSampleData:
+          this.api.sampleDataEnabled() && this.orgIncludeSampleData,
       });
       this.selectedOrg = result.organizationId;
       this.setup.set(result.invitation);

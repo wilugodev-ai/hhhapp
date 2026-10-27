@@ -22,7 +22,8 @@ public sealed class HhhFactory : WebApplicationFactory<Program>
                 ?? "Server=.\\SQLEXPRESS01;Database=HhhIntegrationTests;Trusted_Connection=True;TrustServerCertificate=True",
             ["Database:MigrateOnStartup"] = "true",
             ["Authentication:LoginRequestsPerMinute"] = "100",
-            ["Demo:Enabled"] = "true"
+            ["Demo:Enabled"] = "true",
+            ["SampleData:Enabled"] = "false"
         }));
     }
 }

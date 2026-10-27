@@ -6,6 +6,7 @@ import { AdminComponent } from "./admin.component";
 import { ApiService } from "./api.service";
 import { AdminUser, SetupLink } from "./admin.models";
 import { User } from "./models";
+import { provideRouter } from "@angular/router";
 
 const person: AdminUser = {
   id: "person-1",
@@ -31,6 +32,7 @@ const roles = [
 ];
 async function render(role = "Organization Administrator") {
   const api = {
+    sampleDataEnabled: signal(false),
     user: signal<User>({
       id: "current",
       organizationId: "org-1",
@@ -98,7 +100,7 @@ async function render(role = "Organization Administrator") {
   };
   await TestBed.configureTestingModule({
     imports: [AdminComponent],
-    providers: [{ provide: ApiService, useValue: api }],
+    providers: [provideRouter([]), { provide: ApiService, useValue: api }],
   }).compileComponents();
   const fixture = TestBed.createComponent(AdminComponent);
   fixture.detectChanges();

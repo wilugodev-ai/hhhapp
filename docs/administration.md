@@ -36,7 +36,11 @@ The directory supports name/email search, status filters, and pages of 25. Audit
 
 ## First system administrator
 
-Development adds `sysadmin@hhh.local` (System Administrator) and `summit-admin@hhh.local` (Organization Administrator for Summit). Both use the documented synthetic demo password. Existing users, role changes, and deactivations are preserved by subsequent seeding.
+Normal prototype startup creates no users. The first administrator supplies their own name, email, organization, and password through `/setup`. `scripts/dev.ps1 -ApiOnly` prepares the private installation key and the separate `HhhLocal` database. Follow the [first administrator handoff](first-admin-handoff.md).
+
+When `SampleData:Enabled=true`, setup and new-organization forms offer an optional starter financial dataset. The owner can accept it or start empty. The dataset is independent of identities, and never creates a default administrator or bypasses authentication. The local prototype enables this choice; non-development configuration defaults it off.
+
+Only explicit reference-demo startup (`scripts/dev.ps1 -ApiOnly -Demo`, separate `HhhDevelopment` database) adds `sysadmin@hhh.local` and the other synthetic identities. Existing users and access changes are preserved there.
 
 The configured demo's `/setup` page offers **Open demo administration**. This signs in only to the fixed synthetic `sysadmin@hhh.local` account and opens Administration. Choose **Invite user** to create another administrator, or **New organization** to provision a separate workspace and its administrator. The shortcut requires both Development environment and demo enablement; it returns 404 in other environments and cannot reactivate, unlock, or promote the sample account. It is audited as `auth.demo.admin`.
 

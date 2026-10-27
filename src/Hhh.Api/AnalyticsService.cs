@@ -52,6 +52,9 @@ public sealed class AnalyticsService(HhhDbContext db, MlrConfigurationService ml
         var priorYear = all.Where(x => x.EffectiveMonth == selected?.AddYears(-1)).ToList();
         FinancialMetrics Metrics(IEnumerable<FinancialSnapshot> rows) => FinancialMetrics.Calculate(rows, mlrSelection);
         var totals = Metrics(period);
+        var batchIds = period.Select(s => s.SourceBatchId).Distinct().ToArray();
+        var provenance = await db.SourceBatches.Where(b => b.OrganizationId == organizationId && batchIds.Contains(b.Id)).Select(b => b.IsSynthetic).Distinct().ToListAsync(ct);
+        var dataStatus = provenance.Count == 0 ? "empty" : provenance.Count > 1 ? "mixed" : provenance[0] ? "sample" : "loaded";
         var currentMonth = Metrics(all.Where(x => x.EffectiveMonth == selected));
         var comparisons = new
         {
@@ -83,7 +86,8 @@ public sealed class AnalyticsService(HhhDbContext db, MlrConfigurationService ml
             mlrDefinitionName = mlrSelection.Name,
             mlrDefinitionVersion = mlrSelection.Version,
             period = selected?.ToString("yyyy-MM"),
-            isSynthetic = true,
+            isSynthetic = dataStatus == "sample",
+            dataStatus,
             periodMode = filter.Month is null && filter.Year is not null ? "year" : "month",
             totals,
             comparisons,

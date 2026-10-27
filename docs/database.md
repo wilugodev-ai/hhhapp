@@ -38,7 +38,7 @@ The Phase 1 seed provides one report version per effective month. Restatement in
 
 The additive `BudgetPlans` migration introduces versioned organization/year plans, monthly `BudgetSnapshots` at the same seven-dimension cohort grain, and categorized `Facts_Budget` amounts. Composite organization foreign keys isolate plans and dimensions. Unique indexes prevent duplicate plan versions, monthly cohort snapshots, and financial components.
 
-Budgets are independent of actuals. Planned membership is stored once per budget cohort, and budget lines carry decimal amounts. Development startup adds the synthetic plans to existing HHH databases without replacing actuals or settings. Runtime report comparisons match cohorts and components before calculating variance.
+Budgets are independent of actuals. Planned membership is stored once per budget cohort, and budget lines carry decimal amounts. Optional starter-data installation adds synthetic plans to a new organization's records without replacing actuals or settings. Explicit reference-demo startup preserves its existing sample plans. Runtime report comparisons match cohorts and components before calculating variance.
 
 ## MLR configuration
 
@@ -55,5 +55,7 @@ Access mutations use a transaction-owned SQL Server application lock plus optimi
 ## Installation completion
 
 The `InitialAdministratorSetup` migration adds the singleton `InstallationStates` row (ID 1, enforced by a check constraint) and its nullable `AdministratorSetupCompletedAt`. Existing installations with an established system administrator are marked complete during migration; development seeding also closes setup for the synthetic platform administrator. Setup keys are deployment secrets and are not stored in this table.
+
+The normal local prototype uses `HhhLocal` with no seeded identities. `StarterFinancialData` independently installs optional financials, dimensions, approved budgets, and MLR defaults in the administrator's new organization. It runs inside account/organization creation's transaction and creates no users. The previous `HhhDevelopment` dataset and synthetic identities remain available only through explicit reference-demo startup.
 
 Browser setup creates the first organization/user/role, password hash, audit records, and completion marker under the access-administration transaction lock. CLI account activation closes the same marker. Removing roles or changing configuration never clears it. Setup integration tests use the separate `HhhFirstAdminSetupTests` database with demo seeding disabled; their fixture cleanup/reset is restricted to that named test database.

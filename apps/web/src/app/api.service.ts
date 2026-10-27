@@ -21,6 +21,7 @@ export class ApiService {
   private http = inject(HttpClient);
   user = signal<User | null>(null);
   demoEnabled = signal(false);
+  sampleDataEnabled = signal(false);
   setupAvailable = signal(false);
   setupState = signal<"available" | "configured" | "disabled" | "unknown">(
     "unknown",
@@ -29,11 +30,13 @@ export class ApiService {
     const config = await firstValueFrom(
       this.http.get<{
         demoEnabled: boolean;
+        sampleDataEnabled?: boolean;
         setupAvailable?: boolean;
         setupState?: "available" | "configured" | "disabled";
       }>("/api/auth/csrf"),
     );
     this.demoEnabled.set(config.demoEnabled);
+    this.sampleDataEnabled.set(config.sampleDataEnabled === true);
     this.setupAvailable.set(config.setupAvailable === true);
     this.setupState.set(
       config.setupState ?? (config.setupAvailable ? "available" : "unknown"),
@@ -54,6 +57,7 @@ export class ApiService {
     displayName: string;
     organizationName: string;
     password: string;
+    includeSampleData?: boolean;
   }) {
     await this.csrf();
     await firstValueFrom(this.http.post("/api/auth/setup", body));
@@ -162,6 +166,7 @@ export class ApiService {
     name: string;
     adminEmail: string;
     adminName: string;
+    includeSampleData?: boolean;
   }) {
     return firstValueFrom(
       this.http.post<{ organizationId: string; invitation: SetupLink }>(

@@ -22,6 +22,8 @@ The production web container proxies `/api` to the API. Development uses Angular
 
 ## Persistence and grain
 
+Normal prototype startup does not seed identities. First-admin setup creates an operator-authorized system administrator and organization, optionally adding `StarterFinancialData` inside the same transaction. Starter financial data is independent of the reference-demo identities and public demo sign-in routes. `SampleData:Enabled` controls the data option; `Demo:Enabled` defaults off. The first administrator lands in Administration with links to organization, financial/MLR, and team configuration. See [handoff](first-admin-handoff.md).
+
 Each financial snapshot belongs to one organization, one effective month, one report month, one general ledger month, one payer, one medical center, one provider, one contract, one plan, one line of business, and one region. Each dimension combination contains one non-overlapping synthetic membership cohort. A unique database index enforces snapshot identity.
 
 Revenue, medical expenses, and membership are stored in separate facts sharing the snapshot key. Financial facts carry explicit categories and decimal amounts. Membership is stored once per snapshot, and is not joined to transaction rows when aggregating. Capitation is a revenue category, not additional revenue to sum a second time. Adjustments and IBNR remain explicit components. The synthetic seed currently has one report version per effective month; later restatements must select a single authorized version before aggregating.

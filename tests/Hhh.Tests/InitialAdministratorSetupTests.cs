@@ -27,7 +27,7 @@ public sealed class SetupFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:Hhh"] = connection.ConnectionString, ["Database:MigrateOnStartup"] = "true",
-            ["Demo:Enabled"] = "false", ["Bootstrap:SetupKey"] = SetupKey,
+            ["Demo:Enabled"] = "false", ["SampleData:Enabled"] = "false", ["Bootstrap:SetupKey"] = SetupKey,
             ["Authentication:SetupRequestsPerMinute"] = "100", ["Authentication:LoginRequestsPerMinute"] = "100"
         }));
     }
@@ -149,6 +149,40 @@ public sealed class InitialAdministratorSetupTests(SetupFactory factory) : IClas
         Assert.Equal(HttpStatusCode.TooManyRequests, (await client.PostAsJsonAsync("/api/auth/setup", wrong)).StatusCode);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Owner_can_start_with_financial_data_without_demo_accounts_or_choose_an_empty_workspace(bool includeSampleData)
+    {
+        using var host = factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["SampleData:Enabled"] = "true" })));
+        using var client = host.CreateClient();
+        var status = await Token(client); Assert.False(status.GetProperty("demoEnabled").GetBoolean()); Assert.True(status.GetProperty("sampleDataEnabled").GetBoolean());
+        var body = Body();
+        (await client.PostAsJsonAsync("/api/auth/setup", new { body.SetupKey, body.Email, body.DisplayName, body.OrganizationName, body.Password, includeSampleData })).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/api/auth/demo", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/api/auth/demo-admin", new { })).StatusCode);
+        (await client.PostAsJsonAsync("/api/auth/login", new { body.Email, body.Password })).EnsureSuccessStatusCode(); await Token(client);
+        var dashboard = await client.GetFromJsonAsync<JsonElement>("/api/analytics/dashboard");
+        Assert.Equal(body.OrganizationName, dashboard.GetProperty("organization").GetString());
+        Assert.Equal(includeSampleData, dashboard.GetProperty("isSynthetic").GetBoolean());
+        Assert.Equal(includeSampleData ? "sample" : "empty", dashboard.GetProperty("dataStatus").GetString());
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<HhhDbContext>();
+        var owner = await db.Users.SingleAsync(); Assert.Equal(body.Email, owner.Email);
+        Assert.Equal(1, await db.Organizations.CountAsync());
+        if (includeSampleData)
+        {
+            Assert.True(dashboard.GetProperty("totals").GetProperty("revenue").GetDecimal() > 0);
+            Assert.Equal(21, await db.Snapshots.Select(s => s.EffectiveMonth).Distinct().CountAsync());
+            Assert.Equal(2, await db.BudgetPlans.CountAsync()); Assert.Equal(1, await db.MlrDefinitions.CountAsync());
+            var mlr = await client.GetFromJsonAsync<JsonElement>("/api/analytics/mlr?window=12"); Assert.True(mlr.GetProperty("current").GetProperty("complete").GetBoolean());
+            (await client.PutAsJsonAsync("/api/settings", new { mlrTarget = 84 })).EnsureSuccessStatusCode();
+            var count = await db.Snapshots.CountAsync(); await StarterFinancialData.RunAsync(db, owner.OrganizationId);
+            Assert.Equal(count, await db.Snapshots.CountAsync()); Assert.Equal(1, await db.Users.CountAsync());
+            Assert.Equal(84m, (await db.Organizations.AsNoTracking().SingleAsync()).MlrTarget);
+        }
+        else { Assert.False(await db.Snapshots.AnyAsync()); Assert.False(await db.BudgetPlans.AnyAsync()); }
+    }
+
     private static async Task<JsonElement> Token(HttpClient client)
     {
         var response = await client.GetAsync("/api/auth/csrf"); response.EnsureSuccessStatusCode();
@@ -163,6 +197,13 @@ public sealed class InitialAdministratorSetupTests(SetupFactory factory) : IClas
         if (await db.Users.AnyAsync(u => u.Email == null || !u.Email.StartsWith("setup-test-"))) throw new InvalidOperationException("Setup tests contain an unexpected account.");
         var organizations = await db.Organizations.Where(o => o.Name.StartsWith("setup-test-")).ToListAsync(); var ids = organizations.Select(o => o.Id).ToArray();
         db.AuditEvents.RemoveRange(await db.AuditEvents.Where(a => ids.Contains(a.OrganizationId)).ToListAsync());
+        db.MlrTargets.RemoveRange(await db.MlrTargets.Where(t => ids.Contains(t.OrganizationId)).ToListAsync());
+        db.MlrDefinitions.RemoveRange(await db.MlrDefinitions.Where(d => ids.Contains(d.OrganizationId)).ToListAsync());
+        db.BudgetSnapshots.RemoveRange(await db.BudgetSnapshots.Where(s => ids.Contains(s.OrganizationId)).ToListAsync());
+        db.BudgetPlans.RemoveRange(await db.BudgetPlans.Where(p => ids.Contains(p.OrganizationId)).ToListAsync());
+        db.Snapshots.RemoveRange(await db.Snapshots.Where(s => ids.Contains(s.OrganizationId)).ToListAsync());
+        db.SourceBatches.RemoveRange(await db.SourceBatches.Where(b => ids.Contains(b.OrganizationId)).ToListAsync());
+        db.Dimensions.RemoveRange(await db.Dimensions.Where(d => ids.Contains(d.OrganizationId)).ToListAsync());
         db.Users.RemoveRange(await db.Users.ToListAsync()); db.Organizations.RemoveRange(organizations);
         (await db.InstallationStates.SingleAsync(s => s.Id == 1)).AdministratorSetupCompletedAt = null;
         await db.SaveChangesAsync();

@@ -44,13 +44,19 @@
       }
     </nav>
     <div class="sidebar-bottom">
-      <div class="demo-card">
-        <hhh-icon name="shield" />
-        <div>
-          <strong>A safe place to explore</strong
-          ><small>100% synthetic demo data</small>
+      @if (data()?.isSynthetic || data()?.dataStatus === "mixed") {
+        <div class="demo-card">
+          <hhh-icon name="shield" />
+          <div>
+            <strong>Sample financial data</strong
+            ><small>{{
+              data()?.dataStatus === "mixed"
+                ? "Includes sample source batches"
+                : "Starter data for your workspace"
+            }}</small>
+          </div>
         </div>
-      </div>
+      }
       <button
         class="collapse-button"
         (click)="collapsed.set(!collapsed())"
@@ -73,9 +79,17 @@
         ><strong>{{ activeNav().label }}</strong>
       </div>
       <div class="topbar-actions">
-        <span class="synthetic-pill"
-          ><span class="status-dot"></span> Synthetic workspace</span
-        ><button
+        @if (data()?.isSynthetic || data()?.dataStatus === "mixed") {
+          <span class="synthetic-pill"
+            ><span class="status-dot"></span
+            >{{
+              data()?.dataStatus === "mixed"
+                ? "Includes sample data"
+                : "Sample financial data"
+            }}</span
+          >
+        }
+        <button
           class="icon-button"
           (click)="toggleTheme()"
           [attr.aria-label]="
@@ -550,7 +564,7 @@
               <div>
                 <span>Ending membership</span
                 ><strong>{{ number(d.endingMembership) }}</strong
-                ><small>Unique synthetic cohort members</small>
+                ><small>Members in the final effective month</small>
               </div>
               <div>
                 <span>Revenue PMPM</span
@@ -793,7 +807,7 @@
               <div class="panel-heading">
                 <div>
                   <h2>Membership growth</h2>
-                  <p>Non-overlapping synthetic cohorts · Monthly membership</p>
+                  <p>Non-overlapping cohorts · Monthly membership</p>
                 </div>
               </div>
               <hhh-chart
@@ -886,7 +900,7 @@
       <footer class="workspace-footer">
         <span>HHH <span>Healthcare Horizon Hub</span></span
         ><span>Financial clarity. A wider horizon.</span
-        ><span>Phase 1 · Synthetic workspace</span>
+        ><span>Organization workspace</span>
       </footer>
     </main>
   </div>

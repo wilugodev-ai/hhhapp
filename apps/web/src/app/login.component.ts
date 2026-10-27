@@ -99,7 +99,14 @@ export class LoginComponent {
     this.error.set("");
     try {
       await this.api.login(this.email, this.password, demo);
-      await this.router.navigateByUrl("/app/overview");
+      const administrator = this.api
+        .user()
+        ?.roles.some((role) =>
+          ["System Administrator", "Organization Administrator"].includes(role),
+        );
+      await this.router.navigateByUrl(
+        administrator ? "/app/administration" : "/app/overview",
+      );
     } catch (e) {
       this.error.set(errorMessage(e));
     } finally {

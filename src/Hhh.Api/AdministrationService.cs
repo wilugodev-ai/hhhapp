@@ -19,10 +19,10 @@ public sealed class AdministrationException(int status, string message) : Except
 public sealed record CreateUserRequest(string Email, string DisplayName, string Role);
 public sealed record UpdateUserRequest(string DisplayName, string Role, bool IsActive, int ExpectedVersion);
 public sealed record AccessVersionRequest(int ExpectedVersion);
-public sealed record CreateOrganizationRequest(string Name, string AdminEmail, string AdminName);
+public sealed record CreateOrganizationRequest(string Name, string AdminEmail, string AdminName, bool IncludeSampleData = true);
 public sealed record UpdateOrganizationRequest(string Name, bool IsActive, int ExpectedVersion);
 public sealed record AcceptInvitationRequest(string UserId, string Token, string Password);
-public sealed record FirstAdministratorRequest(string? SetupKey, string Email, string DisplayName, string OrganizationName, string? Password);
+public sealed record FirstAdministratorRequest(string? SetupKey, string Email, string DisplayName, string OrganizationName, string? Password, bool IncludeSampleData = true);
 public sealed record AdminUserRow(string Id, string Email, string DisplayName, string Role, bool IsActive,
     bool InvitationPending, DateTimeOffset? InvitationExpiresAt, DateTimeOffset? LockoutEnd, int Version);
 public sealed record InvitationResult(AdminUserRow User, string SetupPath, DateTimeOffset ExpiresAt);
@@ -247,6 +247,7 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
         db.Organizations.Add(org); await db.SaveChangesAsync(ct);
         var invitation = await AddUser(org.Id, new(request.AdminEmail, request.AdminName, Roles.OrganizationAdministrator), actor);
         Audit(org.Id, ActorId(actor), "admin.organization.created", new { org.Id, org.Name });
+        await AddStarterData(org.Id, ActorId(actor), request.IncludeSampleData);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         return new { organizationId = org.Id, invitation };
     }
@@ -340,6 +341,7 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
         var org = await db.Organizations.SingleAsync(o => o.Id == user.OrganizationId, ct); org.Name = organization;
         await CompleteAccount(user, request.Password, false, ct);
         Audit(org.Id, user.Id, "admin.platform.browser-setup.completed", new { subjectId = user.Id });
+        await AddStarterData(org.Id, user.Id, request.IncludeSampleData);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
     }
 
@@ -357,7 +359,17 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
     {
         await using var transaction = await Lock(ct);
         var invitation = await BootstrapCore(email, name, organization, ct);
+        var orgId = await db.Users.Where(u => u.Id == invitation.User.Id).Select(u => u.OrganizationId).SingleAsync(ct);
+        await AddStarterData(orgId, invitation.User.Id, true);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return invitation;
+    }
+
+    private async Task AddStarterData(Guid orgId, string actorId, bool requested)
+    {
+        if (!requested || !configuration.GetValue<bool>("SampleData:Enabled")) return;
+        var exists = await db.SourceBatches.AnyAsync(b => b.OrganizationId == orgId);
+        await StarterFinancialData.RunAsync(db, orgId);
+        if (!exists) Audit(orgId, actorId, "data.starter.loaded", new { months = 21, source = "Synthetic financial baseline v1" });
     }
 
     private async Task<InvitationResult> BootstrapCore(string email, string name, string organization, CancellationToken ct)

@@ -36,8 +36,15 @@ import { IconComponent } from "./icon.component";
             together in one place.
           </p>
           <div class="hero-actions">
-            <a class="btn btn-primary" routerLink="/login"
-              >Explore the platform <hhh-icon name="arrow" /></a
+            <a
+              class="btn btn-primary"
+              [routerLink]="api.setupAvailable() ? '/setup' : '/login'"
+              >{{
+                api.setupAvailable()
+                  ? "Set up your organization"
+                  : "Open your workspace"
+              }}
+              <hhh-icon name="arrow" /></a
             ><a class="btn btn-ghost" href="#approach"
               >Discover HHH <hhh-icon name="down"
             /></a>
@@ -158,9 +165,11 @@ import { IconComponent } from "./icon.component";
             HHH’s roadmap extends that foundation with explainable forecasting,
             scenario modeling, and a permission-aware financial assistant.
           </p>
-          <a routerLink="/login" class="text-link"
-            >Explore the Phase 1 workspace <hhh-icon name="arrow" /></a
-          ><small>The development demo uses synthetic data exclusively.</small>
+          <a
+            [routerLink]="api.setupAvailable() ? '/setup' : '/login'"
+            class="text-link"
+            >Open your workspace <hhh-icon name="arrow" /></a
+          ><small>Optional starter financial data is clearly labeled.</small>
         </div>
       </section>
     </main>
@@ -172,6 +181,7 @@ import { IconComponent } from "./icon.component";
   </div>`,
 })
 export class LandingComponent {
+  api = inject(ApiService);
   constructor() {
     document.documentElement.classList.remove("dark");
   }

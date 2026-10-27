@@ -22,7 +22,7 @@ The product will bring together executive dashboards, profit and loss analytics,
 
 The application now includes a public landing page, sign-in, an interactive executive dashboard, P&L, operational MLR, payer and medical center comparisons, membership trends, filtered CSV reports, source lineage, organization settings, and administrator audit access. Financial metrics come from persistent SQL Server data through the authenticated ASP.NET API.
 
-The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. Settings includes personal appearance controls with Classic, Horizon, Ocean, Warm, and custom-tint backgrounds, live previews, and a reset option. Appearance changes apply immediately, stay synchronized with the toolbar theme button and charts, and persist on the current browser for every role. The seed contains 21 months of synthetic financials for two isolated organizations. No real member records are included.
+The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. Settings includes personal appearance controls with preset backgrounds, a custom tint, previews, and reset. An optional starter dataset adds 21 months of fictional financials and independent budgets to the administrator's own organization. Starter financials do not create user accounts or include real member records.
 
 The first Phase 2 increment adds monthly, quarterly, and yearly P&L statements, persistent approved budget plans, favorable/unfavorable variance, matched prior-year and previous-period comparisons, component drilldowns, paginated cohort lineage, and a P&L CSV export. Payer and center filters preserve the P&L reporting period.
 
@@ -34,19 +34,19 @@ Forecasting, scenario modeling, HHH Intelligence, recurring imports, regulatory 
 
 Administration now supports a searchable user directory, role and activation changes, private expiring setup/recovery links, session revocation, lockout reset, and paginated audit details. System administrators can provision and manage organizations. Version checks, transactional last-administrator protection, and per-request account validation enforce access changes across the API. See [administration and first-admin setup](docs/administration.md).
 
-Fresh installations also have a `/setup` screen, linked from sign-in when the operator enables it with an API-side `Bootstrap__SetupKey`. It creates the first administrator and organization atomically and closes permanently after activation. The existing demo is already configured, so setup stays closed there. See [installation setup instructions](docs/administration.md#first-system-administrator).
+Fresh installations have a `/setup` screen where the first administrator supplies their own identity and organization, and chooses whether to load starter financial data. Setup closes permanently after creation. See the [first administrator handoff](docs/first-admin-handoff.md).
 
-On the configured demo's `/setup` page, **Open demo administration** signs in to the synthetic system administrator and opens account management. Use **Invite user** to create an administrator account. This shortcut requires both Development environment and demo enablement; production uses normal administrator authentication.
+Reference-only demo accounts remain available through an explicit optional mode; they are separate from the normal prototype installation and its users.
 
 ## Run locally
 
-Prerequisites: .NET 10 SDK, Node.js 24.15 or later in the Node 24 release line, and SQL Server 2019 or later. The default development connection uses Windows authentication to `.\SQLEXPRESS01` and a dedicated `HhhDevelopment` database. Override it using `ConnectionStrings__Hhh` for another instance. Use an account that can create this development database and apply migrations.
+Prerequisites: .NET 10 SDK, Node.js 24.15 or later in the Node 24 release line, and SQL Server 2019 or later. The prototype uses Windows authentication to .\SQLEXPRESS01 and the dedicated HhhLocal database. Override ConnectionStrings__Hhh for another instance. Use an account that can create this application database and apply migrations.
 
 From the repository root:
 
 ```powershell
 dotnet restore Hhh.slnx
-dotnet run --project src/Hhh.Api
+.\scripts\dev.ps1 -ApiOnly
 ```
 
 In a second terminal:
@@ -57,9 +57,11 @@ npm ci
 npm start
 ```
 
-Open **http://127.0.0.1:4300** and choose **Explore the platform → Open synthetic demo**. The API runs at http://localhost:5080. In this workspace, `scripts/dev.ps1 -ApiOnly` uses the workspace-local .NET SDK when available; `scripts/dev.ps1` starts the frontend.
+Open **http://127.0.0.1:4300/setup**. The API script generates an installation key in the private, Git-ignored `.artifacts/first-admin-setup.key` file. The first person enters this key and their own administrator/organization details. Leave starter financial data selected to use the financial modules immediately. The API runs at http://localhost:5080. The script uses the workspace-local .NET SDK when available; `scripts/dev.ps1` starts the frontend.
 
-Development startup applies committed EF Core migrations and seeds synthetic data idempotently. Existing databases are not deleted or reset. Demo access and seeding require both the Development environment and `Demo:Enabled=true`; they are disabled by default outside development.
+Normal startup applies migrations and creates no accounts. Demo:Enabled defaults to false, including development. SampleData:Enabled=true in the local prototype allows optional starter financials; outside development it defaults to false. Initial account creation, selected starter data, and setup completion commit together. Existing databases are preserved.
+
+For the optional reference environment, run .\scripts\dev.ps1 -ApiOnly -Demo. It uses the separate HhhDevelopment database and enables synthetic reference accounts only in Development. The following accounts belong to that optional environment:
 
 | Development account | Role | Organization |
 | --- | --- | --- |
@@ -120,4 +122,5 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 - [P&L periods, budgets, variance rules, and drilldowns](docs/profit-loss.md)
 - [Operational MLR definitions, rolling windows, targets, and contribution formulas](docs/mlr.md)
 - [Users, roles, organizations, setup links, and administration](docs/administration.md)
+- [First administrator handoff](docs/first-admin-handoff.md)
 - [Python forecasting service plan](services/forecasting/README.md)
