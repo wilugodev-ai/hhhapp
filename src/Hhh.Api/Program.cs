@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 32 * 1024);
@@ -54,6 +55,8 @@ builder.Services.AddAuthorization(o =>
 });
 builder.Services.AddAntiforgery(o => o.HeaderName = "X-XSRF-TOKEN");
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddScoped<MlrConfigurationService>();
+builder.Services.AddScoped<MlrService>();
 builder.Services.AddScoped<ProfitLossService>();
 builder.Services.AddRateLimiter(o =>
 {
@@ -75,6 +78,12 @@ app.Use(async (context, next) =>
     {
         context.Response.StatusCode = 400;
         await context.Response.WriteAsJsonAsync(new { title = ex.Message, status = 400 });
+    }
+    catch (Exception ex) when (!context.Response.HasStarted && (ex is MlrConfigurationConflict or DbUpdateConcurrencyException
+        || ex is DbUpdateException { InnerException: SqlException sql } && sql.Number is 2601 or 2627))
+    {
+        context.Response.StatusCode = 409;
+        await context.Response.WriteAsJsonAsync(new { title = "MLR settings changed. Reload the configuration before saving again.", status = 409 });
     }
 });
 app.UseAuthentication();
@@ -154,6 +163,30 @@ api.MapPost("/auth/logout", async (HttpContext ctx, HhhDbContext db) =>
 api.MapGet("/analytics/filters", (ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) => analytics.Metadata(Org(principal), ct));
 api.MapGet("/analytics/dashboard", (HttpRequest req, ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) =>
     analytics.Dashboard(Org(principal), AnalyticsFilter.Parse(req.Query), ct));
+api.MapGet("/analytics/mlr", (HttpRequest req, ClaimsPrincipal principal, MlrService service, CancellationToken ct) =>
+    service.Report(Org(principal), AnalyticsFilter.Parse(req.Query), MlrOptions.Parse(req.Query), ct));
+api.MapGet("/mlr/configuration", (ClaimsPrincipal principal, MlrConfigurationService service, CancellationToken ct) => service.Read(Org(principal), ct));
+api.MapPut("/mlr/definition", (MlrDefinitionRequest request, ClaimsPrincipal principal, MlrConfigurationService service, CancellationToken ct) =>
+    service.Save(Org(principal), principal.FindFirstValue(ClaimTypes.NameIdentifier)!, request, ct)).RequireAuthorization("ManageSettings");
+api.MapPut("/mlr/targets/{dimensionId:guid}", (Guid dimensionId, MlrTargetRequest request, ClaimsPrincipal principal, MlrConfigurationService service, CancellationToken ct) =>
+    service.SaveTarget(Org(principal), principal.FindFirstValue(ClaimTypes.NameIdentifier)!, dimensionId, request, ct)).RequireAuthorization("ManageSettings");
+api.MapDelete("/mlr/targets/{dimensionId:guid}", async (Guid dimensionId, HttpRequest request, ClaimsPrincipal principal, MlrConfigurationService service, CancellationToken ct) =>
+{
+    if (!int.TryParse(request.Query["version"], out var version) || version < 1) throw new ArgumentException("Provide the current target version.");
+    await service.RemoveTarget(Org(principal), principal.FindFirstValue(ClaimTypes.NameIdentifier)!, dimensionId, version, ct);
+    return Results.NoContent();
+}).RequireAuthorization("ManageSettings");
+api.MapGet("/reports/mlr.csv", async (HttpRequest req, ClaimsPrincipal principal, MlrService service, HhhDbContext db, CancellationToken ct) =>
+{
+    var report = await service.Report(Org(principal), AnalyticsFilter.Parse(req.Query), MlrOptions.Parse(req.Query), ct);
+    var csv = new StringBuilder("Definition,Definition version,End month,Window months,Group by,Group,Included revenue,Included medical expenses,MLR percent,Target percent,Gap percentage points,Previous MLR percent,Change percentage points,Status,Missing months,Components complete\r\n");
+    foreach (var row in report.Groups)
+        csv.AppendLine(string.Join(",", new object?[] { report.DefinitionName, report.DefinitionVersion, report.EndMonth, report.Window, report.GroupBy, row.Name,
+            row.Values.Revenue, row.Values.Expenses, row.Values.Mlr, row.Target, row.GapPercentagePoints, row.Previous.Mlr, row.ChangePercentagePoints,
+            row.Status, string.Join(";", row.Values.MissingMonths), row.Values.ComponentsComplete }.Select(Csv)));
+    await Audit(db, principal, "report.mlr.csv.exported");
+    return Results.File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv; charset=utf-8", "hhh-mlr.csv");
+});
 api.MapGet("/analytics/profit-loss", (HttpRequest req, ClaimsPrincipal principal, ProfitLossService service, CancellationToken ct) =>
     service.Report(Org(principal), AnalyticsFilter.Parse(req.Query), ProfitLossOptions.Parse(req.Query), ct));
 api.MapGet("/analytics/profit-loss/details", (HttpRequest req, ClaimsPrincipal principal, ProfitLossService service, CancellationToken ct) =>
@@ -179,18 +212,19 @@ api.MapGet("/audit", async (ClaimsPrincipal principal, HhhDbContext db, Cancella
 {
     var orgId = Org(principal);
     return await db.AuditEvents.AsNoTracking().Where(x => x.OrganizationId == orgId).OrderByDescending(x => x.OccurredAt).Take(100)
-        .Select(x => new { x.Id, x.Action, x.OccurredAt }).ToListAsync(ct);
+        .Select(x => new { x.Id, x.Action, x.OccurredAt, x.DetailsJson }).ToListAsync(ct);
 }).RequireAuthorization("Audit");
 api.MapPut("/settings", async (SettingsRequest request, ClaimsPrincipal principal, HhhDbContext db) =>
 {
     if (request.MlrTarget is < 1 or > 100) return Results.BadRequest(new { title = "MLR target must be between 1 and 100%." });
     var orgId = Org(principal);
     var org = await db.Organizations.SingleAsync(x => x.Id == orgId);
+    var previousTarget = org.MlrTarget;
     org.MlrTarget = decimal.Round(request.MlrTarget, 2);
-    await Audit(db, principal, "settings.mlr-target.updated");
+    await Audit(db, principal, "settings.mlr-target.updated", new { previousTarget, target = org.MlrTarget });
     return Results.Ok(new { org.MlrTarget });
 }).RequireAuthorization("ManageSettings");
-api.MapGet("/reports/financial.csv", async (HttpRequest request, ClaimsPrincipal principal, AnalyticsService analytics, HhhDbContext db, CancellationToken ct) =>
+api.MapGet("/reports/financial.csv", async (HttpRequest request, ClaimsPrincipal principal, AnalyticsService analytics, MlrConfigurationService mlrConfiguration, HhhDbContext db, CancellationToken ct) =>
 {
     var filter = AnalyticsFilter.Parse(request.Query);
     var rows = await analytics.Rows(Org(principal), filter, ct);
@@ -198,13 +232,14 @@ api.MapGet("/reports/financial.csv", async (HttpRequest request, ClaimsPrincipal
     else if (filter.Year is { } year) rows = rows.Where(x => x.EffectiveMonth.Year == year).ToList();
     else if (rows.Count > 0) { var latest = rows.Max(x => x.EffectiveMonth); rows = rows.Where(x => x.EffectiveMonth == latest).ToList(); }
     var orgId = Org(principal);
+    var mlrSelection = await mlrConfiguration.Selection(orgId, ct);
     var names = await db.Dimensions.AsNoTracking().Where(x => x.OrganizationId == orgId).ToDictionaryAsync(x => x.Id, x => x.Name, ct);
-    var csv = new StringBuilder("Effective month,Report month,General ledger month,Payer,Medical center,Revenue,Medical expenses,Administrative expenses,Net profit,Member months,Operational MLR,Synthetic\r\n");
+    var csv = new StringBuilder("Effective month,Report month,General ledger month,Payer,Medical center,Revenue,Medical expenses,Administrative expenses,Net profit,Member months,Operational MLR,Synthetic,MLR definition,MLR definition version,Included MLR revenue,Included MLR medical expenses\r\n");
     foreach (var row in rows.OrderBy(x => x.EffectiveMonth).ThenBy(x => x.PayerId))
     {
-        var m = FinancialMetrics.Calculate([row]);
+        var m = FinancialMetrics.Calculate([row], mlrSelection);
         csv.AppendLine(string.Join(",", new object?[] { row.EffectiveMonth, row.ReportMonth, row.GeneralLedgerMonth, names[row.PayerId], names[row.MedicalCenterId],
-            m.Revenue, m.MedicalExpenses, m.AdministrativeExpenses, m.NetProfit, m.MemberMonths, m.Mlr, true }.Select(Csv)));
+            m.Revenue, m.MedicalExpenses, m.AdministrativeExpenses, m.NetProfit, m.MemberMonths, m.Mlr, true, mlrSelection.Name, mlrSelection.Version, m.MlrRevenue, m.MlrExpenses }.Select(Csv)));
     }
     await Audit(db, principal, "report.financial.csv.exported");
     return Results.File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv; charset=utf-8", "hhh-financial-report.csv");
@@ -222,9 +257,16 @@ if (args.Contains("--migrate")) return;
 await app.RunAsync();
 
 static Guid Org(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue("organization") ?? throw new UnauthorizedAccessException());
-static async Task Audit(HhhDbContext db, ClaimsPrincipal principal, string action)
+static async Task Audit(HhhDbContext db, ClaimsPrincipal principal, string action, object? details = null)
 {
-    db.AuditEvents.Add(new() { OrganizationId = Org(principal), UserId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!, Action = action, OccurredAt = DateTimeOffset.UtcNow });
+    db.AuditEvents.Add(new()
+    {
+        OrganizationId = Org(principal),
+        UserId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!,
+        Action = action,
+        OccurredAt = DateTimeOffset.UtcNow,
+        DetailsJson = details is null ? null : System.Text.Json.JsonSerializer.Serialize(details)
+    });
     await db.SaveChangesAsync();
 }
 static string Csv(object? value)

@@ -77,6 +77,34 @@ public sealed class AuditEvent
     public string UserId { get; set; } = "";
     public string Action { get; set; } = "";
     public DateTimeOffset OccurredAt { get; set; }
+    public string? DetailsJson { get; set; }
+}
+
+public sealed class MlrDefinition
+{
+    public Guid OrganizationId { get; set; }
+    public string Name { get; set; } = "Standard operational MLR";
+    public int Version { get; set; } = 1;
+    public DateTimeOffset UpdatedAt { get; set; }
+    public List<MlrComponent> Components { get; set; } = [];
+}
+
+public sealed class MlrComponent
+{
+    public long Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string Type { get; set; } = "";
+    public string Category { get; set; } = "";
+}
+
+public sealed class MlrTargetRule
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid DimensionId { get; set; }
+    public decimal Target { get; set; }
+    public int Version { get; set; } = 1;
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public sealed class BudgetPlan

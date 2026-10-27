@@ -4,6 +4,8 @@ HHH is an independent multi-organization financial analytics application. Phase 
 
 The first Phase 2 increment implements period-based P&L drilldowns and persistent approved budget comparisons. `ProfitLossService` applies organization scope, bounds actual reads to the reporting/comparison window, validates matching cohort/component coverage, and shares the same report calculation across the API, detail view, and CSV export. See [P&L rules](profit-loss.md).
 
+Advanced MLR adds a shared, versioned component selection, complete rolling windows, scoped target overrides, in-app alerts, and reconciled arithmetic attribution. `MlrConfigurationService` owns audited configuration changes; `MlrService` orchestrates bounded reads; domain `MlrCalculation` owns weighted ratios and attribution. Angular component tests cover operational controls and missing-data presentation. See [MLR rules](mlr.md).
+
 ## Boundaries
 
 - `src/Hhh.Api`: ASP.NET Core API, cookie authentication, organization authorization, analytics, exports, health checks, and audit access.
@@ -30,7 +32,7 @@ Dimension tables belong to an organization. References are validated during seed
 - Medical expenses = sum of medical expense facts, including IBNR; stop-loss recoveries are negative medical costs. Administrative expenses are separate.
 - Net profit = revenue - medical expenses - administrative expenses.
 - Gross margin = (revenue - medical expenses) / revenue. Net margin = net profit / revenue.
-- Operational MLR = medical expenses / revenue. This is not a regulatory MLR calculation.
+- Operational MLR = included medical expenses / included revenue, using the organization's saved category definition. It is unavailable for incomplete windows or nonpositive included revenue. This is not a regulatory MLR calculation.
 - Monthly membership = sum of the non-overlapping cohort counts. Multi-month membership exposure = sum of member months; ending membership = membership in the final effective month.
 - Revenue PMPM = total revenue / member months; cost PMPM = total medical expenses / member months.
 - Period and payer ratios are calculated from aggregate numerators and denominators, never by averaging row percentages.

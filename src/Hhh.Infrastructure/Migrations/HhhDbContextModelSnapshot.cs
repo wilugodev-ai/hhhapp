@@ -35,6 +35,10 @@ namespace Hhh.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
+                    b.Property<string>("DetailsJson")
+                        .HasMaxLength(16000)
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("datetimeoffset");
 
@@ -321,6 +325,88 @@ namespace Hhh.Infrastructure.Migrations
                     b.HasKey("SnapshotId");
 
                     b.ToTable("Facts_Membership", (string)null);
+                });
+
+            modelBuilder.Entity("Hhh.Domain.MlrComponent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Type", "Category")
+                        .IsUnique();
+
+                    b.ToTable("MlrComponents");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.MlrDefinition", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("OrganizationId");
+
+                    b.ToTable("MlrDefinitions");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.MlrTargetRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DimensionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Target")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "DimensionId")
+                        .IsUnique();
+
+                    b.ToTable("MlrTargets");
                 });
 
             modelBuilder.Entity("Hhh.Domain.Organization", b =>
@@ -769,6 +855,34 @@ namespace Hhh.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Hhh.Domain.MlrComponent", b =>
+                {
+                    b.HasOne("Hhh.Domain.MlrDefinition", null)
+                        .WithMany("Components")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.MlrDefinition", b =>
+                {
+                    b.HasOne("Hhh.Domain.Organization", null)
+                        .WithOne()
+                        .HasForeignKey("Hhh.Domain.MlrDefinition", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.MlrTargetRule", b =>
+                {
+                    b.HasOne("Hhh.Domain.Dimension", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "DimensionId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Hhh.Domain.RevenueFact", b =>
                 {
                     b.HasOne("Hhh.Domain.FinancialSnapshot", null)
@@ -865,6 +979,11 @@ namespace Hhh.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Revenue");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.MlrDefinition", b =>
+                {
+                    b.Navigation("Components");
                 });
 #pragma warning restore 612, 618
         }

@@ -217,6 +217,146 @@ public sealed class ApiIntegrationTests(HhhFactory factory) : IClassFixture<HhhF
 
     private static JsonElement Total(JsonElement report, string type) => report.GetProperty("totals").EnumerateArray().Single(x => x.GetProperty("type").GetString() == type);
 
+    [Fact]
+    public async Task Rolling_mlr_uses_summed_inputs_and_driver_contributions_reconcile()
+    {
+        using var client = await Login("demo@hhh.local");
+        var report = await client.GetFromJsonAsync<JsonElement>("/api/analytics/mlr?month=2026-09&window=3&groupBy=payer");
+        var revenue = 0m; var expenses = 0m;
+        foreach (var month in new[] { "2026-07", "2026-08", "2026-09" })
+        {
+            var dashboard = await client.GetFromJsonAsync<JsonElement>("/api/analytics/dashboard?month=" + month);
+            revenue += dashboard.GetProperty("totals").GetProperty("mlrRevenue").GetDecimal();
+            expenses += dashboard.GetProperty("totals").GetProperty("mlrExpenses").GetDecimal();
+        }
+        var current = report.GetProperty("current");
+        Assert.Equal(revenue, current.GetProperty("revenue").GetDecimal()); Assert.Equal(expenses, current.GetProperty("expenses").GetDecimal());
+        Assert.Equal(decimal.Round(expenses / revenue * 100, 2), current.GetProperty("mlr").GetDecimal());
+        Assert.Equal(revenue, report.GetProperty("groups").EnumerateArray().Sum(x => x.GetProperty("values").GetProperty("revenue").GetDecimal()));
+        var attribution = report.GetProperty("attribution"); Assert.True(attribution.GetProperty("available").GetBoolean());
+        Assert.Equal(attribution.GetProperty("changePercentagePoints").GetDecimal(),
+            attribution.GetProperty("drivers").EnumerateArray().Sum(x => x.GetProperty("contributionPercentagePoints").GetDecimal()) + attribution.GetProperty("roundingPercentagePoints").GetDecimal());
+        var reportLimited = await client.GetFromJsonAsync<JsonElement>("/api/analytics/mlr?month=2026-09&reportMonth=2026-10&window=3");
+        Assert.Equal(JsonValueKind.Null, reportLimited.GetProperty("current").GetProperty("mlr").ValueKind);
+        Assert.Equal(2, reportLimited.GetProperty("current").GetProperty("missingMonths").GetArrayLength()); Assert.Equal(0, reportLimited.GetProperty("alerts").GetArrayLength());
+        Assert.False(reportLimited.GetProperty("attribution").GetProperty("available").GetBoolean());
+        var annual = await client.GetFromJsonAsync<JsonElement>("/api/analytics/mlr?month=2026-09&window=12");
+        Assert.True(annual.GetProperty("current").GetProperty("complete").GetBoolean()); Assert.False(annual.GetProperty("previous").GetProperty("complete").GetBoolean());
+        Assert.False(annual.GetProperty("attribution").GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Saved_mlr_definition_is_versioned_audited_and_consistent_with_dashboard_and_export()
+    {
+        using var client = await Login("demo@hhh.local"); using var other = await Login("summit@hhh.local");
+        var original = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+        var otherBefore = await other.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+        var before = await client.GetFromJsonAsync<JsonElement>("/api/analytics/dashboard?month=2026-09");
+        var revenue = original.GetProperty("revenueCategories").EnumerateArray().Select(x => x.GetString()!).ToArray();
+        var expenses = original.GetProperty("expenseCategories").EnumerateArray().Select(x => x.GetString()!).ToArray();
+        try
+        {
+            var body = new { name = "Test definition without pharmacy", expectedVersion = original.GetProperty("version").GetInt32(), revenueCategories = revenue, expenseCategories = expenses.Where(x => x != "Pharmacy").ToArray() };
+            var response = await client.PutAsJsonAsync("/api/mlr/definition", body); response.EnsureSuccessStatusCode();
+            var saved = (await response.Content.ReadFromJsonAsync<JsonElement>());
+            Assert.Equal(body.expectedVersion + 1, saved.GetProperty("version").GetInt32());
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/mlr/definition", body)).StatusCode);
+            var dashboard = await client.GetFromJsonAsync<JsonElement>("/api/analytics/dashboard?month=2026-09");
+            var mlr = await client.GetFromJsonAsync<JsonElement>("/api/analytics/mlr?month=2026-09");
+            Assert.Equal(mlr.GetProperty("current").GetProperty("mlr").GetDecimal(), dashboard.GetProperty("totals").GetProperty("mlr").GetDecimal());
+            Assert.True(dashboard.GetProperty("totals").GetProperty("mlrExpenses").GetDecimal() < before.GetProperty("totals").GetProperty("mlrExpenses").GetDecimal());
+            Assert.DoesNotContain(mlr.GetProperty("attribution").GetProperty("drivers").EnumerateArray(), x => x.GetProperty("category").GetString() == "Pharmacy");
+            Assert.Equal(before.GetProperty("totals").GetProperty("netProfit").GetDecimal(), dashboard.GetProperty("totals").GetProperty("netProfit").GetDecimal());
+            Assert.Equal(before.GetProperty("totals").GetProperty("medicalExpenses").GetDecimal(), dashboard.GetProperty("totals").GetProperty("medicalExpenses").GetDecimal());
+            Assert.Contains(body.name, await client.GetStringAsync("/api/reports/financial.csv?month=2026-09"));
+            var otherAfter = await other.GetFromJsonAsync<JsonElement>("/api/mlr/configuration"); Assert.Equal(otherBefore.GetProperty("version").GetInt32(), otherAfter.GetProperty("version").GetInt32());
+            using var admin = await Login("admin@hhh.local"); var audit = await admin.GetFromJsonAsync<JsonElement>("/api/audit");
+            Assert.Contains(audit.EnumerateArray(), x => x.GetProperty("action").GetString() == "mlr.definition.updated" && x.GetProperty("detailsJson").GetString()!.Contains(body.name, StringComparison.Ordinal));
+        }
+        finally
+        {
+            var current = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+            (await client.PutAsJsonAsync("/api/mlr/definition", new { name = original.GetProperty("name").GetString(), expectedVersion = current.GetProperty("version").GetInt32(), revenueCategories = revenue, expenseCategories = expenses })).EnsureSuccessStatusCode();
+        }
+    }
+
+    [Fact]
+    public async Task Group_targets_work_for_payers_centers_providers_and_plans_and_can_be_reset()
+    {
+        using var client = await Login("demo@hhh.local"); var metadata = await client.GetFromJsonAsync<JsonElement>("/api/analytics/filters");
+        foreach (var (kind, group) in new[] { ("Payer", "payer"), ("MedicalCenter", "center"), ("Provider", "provider"), ("Plan", "plan") })
+        {
+            var dimension = metadata.GetProperty("dimensions").EnumerateArray().First(x => x.GetProperty("kind").GetString() == kind).GetProperty("id").GetString()!;
+            var original = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+            var prior = original.GetProperty("targets").EnumerateArray().Where(x => x.GetProperty("dimensionId").GetString() == dimension).ToArray();
+            try
+            {
+                var response = await client.PutAsJsonAsync("/api/mlr/targets/" + dimension, new { target = 55m, expectedVersion = prior.Length == 0 ? 0 : prior[0].GetProperty("version").GetInt32() }); response.EnsureSuccessStatusCode();
+                var updated = await response.Content.ReadFromJsonAsync<JsonElement>(); var version = updated.GetProperty("targets").EnumerateArray().Single(x => x.GetProperty("dimensionId").GetString() == dimension).GetProperty("version").GetInt32();
+                var report = await client.GetFromJsonAsync<JsonElement>("/api/analytics/mlr?month=2026-09&window=3&groupBy=" + group);
+                var row = report.GetProperty("groups").EnumerateArray().Single(x => x.GetProperty("id").GetString() == dimension);
+                Assert.Equal(55m, row.GetProperty("target").GetDecimal()); Assert.Equal("above-target", row.GetProperty("status").GetString());
+                Assert.Contains(report.GetProperty("alerts").EnumerateArray(), x => x.GetProperty("id").GetString() == dimension);
+                Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/mlr/targets/" + dimension, new { target = 60m, expectedVersion = version - 1 })).StatusCode);
+                if (kind == "Payer")
+                {
+                    var dashboard = await client.GetFromJsonAsync<JsonElement>("/api/analytics/dashboard?month=2026-09");
+                    Assert.Equal(55m, dashboard.GetProperty("payers").EnumerateArray().Single(x => x.GetProperty("id").GetString() == dimension).GetProperty("mlrTarget").GetDecimal());
+                }
+            }
+            finally
+            {
+                var current = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration"); var rule = current.GetProperty("targets").EnumerateArray().Single(x => x.GetProperty("dimensionId").GetString() == dimension);
+                if (prior.Length == 0) (await client.DeleteAsync("/api/mlr/targets/" + dimension + "?version=" + rule.GetProperty("version").GetInt32())).EnsureSuccessStatusCode();
+                else (await client.PutAsJsonAsync("/api/mlr/targets/" + dimension, new { target = prior[0].GetProperty("target").GetDecimal(), expectedVersion = rule.GetProperty("version").GetInt32() })).EnsureSuccessStatusCode();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Mlr_configuration_and_exports_enforce_roles_scope_and_input_validation()
+    {
+        using var anonymous = factory.CreateClient(); Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/analytics/mlr")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/reports/mlr.csv")).StatusCode);
+        using var viewer = await Login("viewer@hhh.local");
+        Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync("/api/analytics/mlr?month=2026-09")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.PutAsJsonAsync("/api/mlr/definition", new { name = "Denied", expectedVersion = 0, revenueCategories = new[] { "Capitation" }, expenseCategories = new[] { "Inpatient" } })).StatusCode);
+        using var cfo = await Login("demo@hhh.local"); using var other = await Login("summit@hhh.local");
+        var metadata = await other.GetFromJsonAsync<JsonElement>("/api/analytics/filters"); var foreign = metadata.GetProperty("dimensions")[0].GetProperty("id").GetString();
+        Assert.Equal(HttpStatusCode.BadRequest, (await cfo.PutAsJsonAsync("/api/mlr/targets/" + foreign, new { target = 80, expectedVersion = 0 })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.DeleteAsync("/api/mlr/targets/" + foreign + "?version=1")).StatusCode);
+        var config = await cfo.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+        Assert.Equal(HttpStatusCode.BadRequest, (await cfo.PutAsJsonAsync("/api/mlr/definition", new { name = "Invalid", expectedVersion = config.GetProperty("version").GetInt32(), revenueCategories = new[] { "Capitation" }, expenseCategories = new[] { "Administrative" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await cfo.GetAsync("/api/analytics/mlr?window=2")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await cfo.GetAsync("/api/analytics/mlr?groupBy=month")).StatusCode);
+        var csv = await viewer.GetStringAsync("/api/reports/mlr.csv?month=2026-09&window=6&groupBy=provider");
+        Assert.Contains("Definition version", csv); Assert.Contains("Gap percentage points", csv); Assert.Contains("\"2026-09\",\"6\",\"provider\"", csv);
+    }
+
+    [Fact]
+    public async Task Concurrent_target_updates_allow_one_winner_and_report_a_version_conflict()
+    {
+        using var client = await Login("demo@hhh.local"); var metadata = await client.GetFromJsonAsync<JsonElement>("/api/analytics/filters");
+        var id = metadata.GetProperty("dimensions").EnumerateArray().First(x => x.GetProperty("kind").GetString() == "Region").GetProperty("id").GetString()!;
+        var original = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+        var before = original.GetProperty("targets").EnumerateArray().Where(x => x.GetProperty("dimensionId").GetString() == id).ToArray();
+        var version = before.Length == 0 ? 0 : before[0].GetProperty("version").GetInt32();
+        try
+        {
+            var results = await Task.WhenAll(client.PutAsJsonAsync("/api/mlr/targets/" + id, new { target = 81, expectedVersion = version }),
+                client.PutAsJsonAsync("/api/mlr/targets/" + id, new { target = 82, expectedVersion = version }));
+            Assert.Single(results, x => x.StatusCode == HttpStatusCode.OK); Assert.Single(results, x => x.StatusCode == HttpStatusCode.Conflict);
+            var current = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration");
+            Assert.Equal(version + 1, current.GetProperty("targets").EnumerateArray().Single(x => x.GetProperty("dimensionId").GetString() == id).GetProperty("version").GetInt32());
+        }
+        finally
+        {
+            var current = await client.GetFromJsonAsync<JsonElement>("/api/mlr/configuration"); var rule = current.GetProperty("targets").EnumerateArray().Single(x => x.GetProperty("dimensionId").GetString() == id);
+            if (before.Length == 0) (await client.DeleteAsync("/api/mlr/targets/" + id + "?version=" + rule.GetProperty("version").GetInt32())).EnsureSuccessStatusCode();
+            else (await client.PutAsJsonAsync("/api/mlr/targets/" + id, new { target = before[0].GetProperty("target").GetDecimal(), expectedVersion = rule.GetProperty("version").GetInt32() })).EnsureSuccessStatusCode();
+        }
+    }
+
     private async Task<HttpClient> Login(string email)
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });

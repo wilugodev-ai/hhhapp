@@ -3,6 +3,7 @@
 .artifacts/
 playwright-report/
 test-results/
+**/out-tsc/
 .env
 .env.*
 !.env.example

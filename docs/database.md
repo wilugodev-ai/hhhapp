@@ -39,3 +39,9 @@ The Phase 1 seed provides one report version per effective month. Restatement in
 The additive `BudgetPlans` migration introduces versioned organization/year plans, monthly `BudgetSnapshots` at the same seven-dimension cohort grain, and categorized `Facts_Budget` amounts. Composite organization foreign keys isolate plans and dimensions. Unique indexes prevent duplicate plan versions, monthly cohort snapshots, and financial components.
 
 Budgets are independent of actuals. Planned membership is stored once per budget cohort, and budget lines carry decimal amounts. Development startup adds the synthetic plans to existing HHH databases without replacing actuals or settings. Runtime report comparisons match cohorts and components before calculating variance.
+
+## MLR configuration
+
+The additive `MlrDefinitionsAndTargets` migration stores one `MlrDefinition` per organization, unique selected revenue/medical `MlrComponents`, and unique organization/dimension `MlrTargetRule` overrides. Definition/target versions are EF concurrency tokens. Composite organization/dimension foreign keys prevent cross-organization target references.
+
+`AuditEvents.DetailsJson` preserves definition category sets, versions, and target changes alongside the actor and time. MLR mutations and their audit events commit in the same `SaveChanges` transaction. Definition reads join their components in one statement to avoid mismatched versions and component sets during concurrent updates. Actual financial facts and budget plans are unchanged by this migration.

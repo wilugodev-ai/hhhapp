@@ -34,11 +34,13 @@ public sealed class AnalyticsFilter
     }
 }
 
-public sealed class AnalyticsService(HhhDbContext db)
+public sealed class AnalyticsService(HhhDbContext db, MlrConfigurationService mlrConfiguration)
 {
     public async Task<object> Dashboard(Guid organizationId, AnalyticsFilter filter, CancellationToken ct)
     {
         var all = await Rows(organizationId, filter, ct);
+        var mlrSelection = await mlrConfiguration.Selection(organizationId, ct);
+        var mlrTargets = await mlrConfiguration.Targets(organizationId, ct);
         var dimensions = await db.Dimensions.AsNoTracking().Where(x => x.OrganizationId == organizationId).ToDictionaryAsync(x => x.Id, x => x.Name, ct);
         var org = await db.Organizations.AsNoTracking().SingleAsync(x => x.Id == organizationId, ct);
         var latest = all.Count == 0 ? (DateOnly?)null : all.Max(x => x.EffectiveMonth);
@@ -48,21 +50,28 @@ public sealed class AnalyticsService(HhhDbContext db)
             ? x.EffectiveMonth.Year == filter.Year : x.EffectiveMonth == selected).ToList();
         var previous = all.Where(x => x.EffectiveMonth == selected?.AddMonths(-1)).ToList();
         var priorYear = all.Where(x => x.EffectiveMonth == selected?.AddYears(-1)).ToList();
-        var totals = FinancialMetrics.Calculate(period);
-        var currentMonth = FinancialMetrics.Calculate(all.Where(x => x.EffectiveMonth == selected));
+        FinancialMetrics Metrics(IEnumerable<FinancialSnapshot> rows) => FinancialMetrics.Calculate(rows, mlrSelection);
+        var totals = Metrics(period);
+        var currentMonth = Metrics(all.Where(x => x.EffectiveMonth == selected));
         var comparisons = new
         {
             currentMonth,
-            previous = FinancialMetrics.Calculate(previous),
-            priorYear = FinancialMetrics.Calculate(priorYear),
+            previous = Metrics(previous),
+            priorYear = Metrics(priorYear),
             previousAvailable = previous.Count > 0,
             priorYearAvailable = priorYear.Count > 0
         };
         var trends = all.Where(x => selected is null || x.EffectiveMonth <= selected)
             .GroupBy(x => x.EffectiveMonth).OrderBy(x => x.Key).TakeLast(12)
-            .Select(g => new { month = g.Key.ToString("yyyy-MM"), metrics = FinancialMetrics.Calculate(g) });
+            .Select(g => new { month = g.Key.ToString("yyyy-MM"), metrics = Metrics(g) });
         object[] Group(Func<FinancialSnapshot, Guid> key) => period.GroupBy(key)
-            .Select(g => (object)new { id = g.Key, name = dimensions[g.Key], metrics = FinancialMetrics.Calculate(g) }).ToArray();
+            .Select(g => (object)new
+            {
+                id = g.Key,
+                name = dimensions[g.Key],
+                metrics = Metrics(g),
+                mlrTarget = mlrTargets.TryGetValue(g.Key, out var rule) ? rule.Target : org.MlrTarget
+            }).ToArray();
         var pnl = period.SelectMany(x => x.Revenue).GroupBy(x => x.Category)
             .Select(g => new { category = g.Key, type = "revenue", amount = g.Sum(x => x.Amount) })
             .Concat(period.SelectMany(x => x.Expenses).GroupBy(x => new { x.Category, x.IsAdministrative })
@@ -71,6 +80,8 @@ public sealed class AnalyticsService(HhhDbContext db)
         {
             organization = org.Name,
             mlrTarget = org.MlrTarget,
+            mlrDefinitionName = mlrSelection.Name,
+            mlrDefinitionVersion = mlrSelection.Version,
             period = selected?.ToString("yyyy-MM"),
             isSynthetic = true,
             periodMode = filter.Month is null && filter.Year is not null ? "year" : "month",
@@ -87,8 +98,13 @@ public sealed class AnalyticsService(HhhDbContext db)
         };
     }
 
-    public Task<DateOnly?> LatestMonth(Guid organizationId, AnalyticsFilter filter, CancellationToken ct)
-        => Query(organizationId, filter).Select(x => (DateOnly?)x.EffectiveMonth).MaxAsync(ct);
+    public Task<DateOnly?> LatestMonth(Guid organizationId, AnalyticsFilter filter, CancellationToken ct, DateOnly? from = null, DateOnly? to = null)
+    {
+        var q = Query(organizationId, filter);
+        if (from is { } start) q = q.Where(x => x.EffectiveMonth >= start);
+        if (to is { } end) q = q.Where(x => x.EffectiveMonth <= end);
+        return q.Select(x => (DateOnly?)x.EffectiveMonth).MaxAsync(ct);
+    }
 
     public async Task<List<FinancialSnapshot>> Rows(Guid organizationId, AnalyticsFilter f, CancellationToken ct, DateOnly? from = null, DateOnly? to = null)
     {

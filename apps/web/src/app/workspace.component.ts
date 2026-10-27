@@ -13,6 +13,7 @@ import { ApiService, errorMessage } from "./api.service";
 import { ChartComponent } from "./chart.component";
 import { IconComponent } from "./icon.component";
 import { ProfitLossComponent } from "./profit-loss.component";
+import { MlrComponent } from "./mlr.component";
 import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
@@ -26,6 +27,7 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     IconComponent,
     ChartComponent,
     ProfitLossComponent,
+    MlrComponent,
   ],
   templateUrl: "./workspace.component.html",
 })
@@ -60,6 +62,7 @@ export class WorkspaceComponent implements OnInit {
     region: "",
   };
   profitLossFilters = signal<Filters>({});
+  mlrFilters = signal<Filters>({});
   target = 85;
   private requestId = 0;
   nav = [
@@ -126,11 +129,15 @@ export class WorkspaceComponent implements OnInit {
   });
   alerts = computed(() =>
     (this.data()?.payers || []).filter(
-      (x) => (x.metrics.mlr ?? 0) > (this.data()?.mlrTarget ?? 85),
+      (x) =>
+        x.metrics.mlr !== null &&
+        x.metrics.mlr > (x.mlrTarget ?? this.data()?.mlrTarget ?? 85),
     ),
   );
+  hasUnavailableMlr = computed(() =>
+    (this.data()?.payers || []).some((row) => row.metrics.mlr === null),
+  );
   revenueChart = computed(() => this.lineChart("revenue"));
-  mlrChart = computed(() => this.lineChart("mlr"));
   membershipChart = computed(() => this.lineChart("membership"));
   pmpmChart = computed(() => this.lineChart("pmpm"));
   expenseChart = computed<EChartsCoreOption>(() => ({
@@ -256,6 +263,12 @@ export class WorkspaceComponent implements OnInit {
   }
   async load() {
     const request = ++this.requestId;
+    if (this.section() === "mlr") {
+      this.mlrFilters.set({ ...this.filters });
+      this.loading.set(false);
+      this.error.set("");
+      return;
+    }
     if (this.section() === "profit-loss") {
       this.profitLossFilters.set({ ...this.filters });
       this.loading.set(false);
@@ -376,7 +389,9 @@ export class WorkspaceComponent implements OnInit {
     return kind === "percent" ? this.percent(value) : this.money(value, true);
   }
   spark(key: keyof Metrics) {
-    const values = (this.data()?.trends || []).map((t) => t.metrics[key] ?? 0);
+    const points = (this.data()?.trends || []).map((t) => t.metrics[key]);
+    if (points.some((value) => value === null)) return "";
+    const values = points as number[];
     const min = Math.min(...values),
       max = Math.max(...values);
     return values

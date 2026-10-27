@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./profit-loss.css";
+@import "./mlr.css";
 
 :root {
   font-family: Inter, "Segoe UI", Arial, sans-serif;

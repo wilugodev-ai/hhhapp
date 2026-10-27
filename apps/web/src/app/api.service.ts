@@ -7,6 +7,7 @@ import {
 import { firstValueFrom } from "rxjs";
 import { Batch, Dashboard, Filters, Metadata, User } from "./models";
 import { ProfitLossDetails, ProfitLossReport } from "./profit-loss.models";
+import { MlrConfiguration, MlrReport } from "./mlr.models";
 
 @Injectable({ providedIn: "root" })
 export class ApiService {
@@ -56,6 +57,52 @@ export class ApiService {
   }
   batches() {
     return firstValueFrom(this.http.get<Batch[]>("/api/data/batches"));
+  }
+  mlr(filters: Filters) {
+    return firstValueFrom(
+      this.http.get<MlrReport>("/api/analytics/mlr", {
+        params: this.params(filters),
+      }),
+    );
+  }
+  mlrConfiguration() {
+    return firstValueFrom(
+      this.http.get<MlrConfiguration>("/api/mlr/configuration"),
+    );
+  }
+  saveMlrDefinition(body: {
+    name: string;
+    expectedVersion: number;
+    revenueCategories: string[];
+    expenseCategories: string[];
+  }) {
+    return firstValueFrom(
+      this.http.put<MlrConfiguration>("/api/mlr/definition", body),
+    );
+  }
+  saveMlrTarget(dimensionId: string, target: number, expectedVersion: number) {
+    return firstValueFrom(
+      this.http.put<MlrConfiguration>("/api/mlr/targets/" + dimensionId, {
+        target,
+        expectedVersion,
+      }),
+    );
+  }
+  async resetMlrTarget(dimensionId: string, version: number) {
+    await firstValueFrom(
+      this.http.delete("/api/mlr/targets/" + dimensionId, {
+        params: { version },
+      }),
+    );
+  }
+  async exportMlr(filters: Filters) {
+    const blob = await firstValueFrom(
+      this.http.get("/api/reports/mlr.csv", {
+        params: this.params(filters),
+        responseType: "blob",
+      }),
+    );
+    this.download(blob, "hhh-mlr.csv");
   }
   profitLoss(filters: Filters) {
     return firstValueFrom(

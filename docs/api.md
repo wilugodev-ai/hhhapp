@@ -13,6 +13,12 @@ All `/api` responses are non-cacheable. Authentication uses an HttpOnly session 
 | POST | `/api/auth/logout` | End the browser session |
 | GET | `/api/analytics/filters` | Authorized dimensions and available periods |
 | GET | `/api/analytics/dashboard` | Metrics, comparisons, trends, P&L components, and payer/center/provider groups |
+| GET | `/api/analytics/mlr` | Weighted MLR windows, group targets, alerts, trends, and reconciled contributions |
+| GET | `/api/mlr/configuration` | Active definition, authorized category catalogs, organization target, and overrides |
+| PUT | `/api/mlr/definition` | Save versioned category definition; CFO/administrator only |
+| PUT | `/api/mlr/targets/{dimensionId}` | Save an organization-scoped dimension target; CFO/administrator only |
+| DELETE | `/api/mlr/targets/{dimensionId}?version=N` | Reset an override to the organization default; CFO/administrator only |
+| GET | `/api/reports/mlr.csv` | Selected group/window MLR and target/coverage export |
 | GET | `/api/analytics/profit-loss` | Period P&L, approved budget, variance, matched comparisons, coverage, and trends |
 | GET | `/api/analytics/profit-loss/details` | Financial component groups and paginated cohort/source detail |
 | GET | `/api/reports/profit-loss.csv` | Selected P&L statement, budget variance, comparison periods, and plan version |
@@ -53,3 +59,13 @@ P&L endpoints accept the shared dimension and report-month filters, plus:
 Detail endpoints additionally require `category` and `type` (`revenue`, `medical`, or `administrative`). Optional `groupBy` accepts `payer`, `center`, `provider`, `contract`, `plan`, `lineOfBusiness`, `region`, or `month`. `page` starts at 1; `pageSize` defaults to 25 and is capped at 100.
 
 `coverage` reports requested/actual/missing months, cohort counts, and comparison availability. Monetary comparison cells and their variances are nullable. Statement budget values align to covered actual months; future monthly budget values appear only in separately labeled trend data. See [P&L rules](profit-loss.md) for coverage and variance semantics.
+
+## MLR parameters and updates
+
+MLR reads share the dimension, effective-month, and report-month filters. `window` accepts 1, 3, 6, or 12 and defaults to 1. `groupBy` accepts `payer`, `center`, `provider`, `plan`, `contract`, `lineOfBusiness`, or `region` and defaults to `payer`. A month is the window end; it does not filter out earlier rolling-window months.
+
+Definition updates use `{ "name": "Operational MLR", "expectedVersion": 1, "revenueCategories": ["Capitation"], "expenseCategories": ["Inpatient"] }`. Both category arrays must be nonempty, distinct, and authorized. Administrative categories are rejected.
+
+Target updates use `{ "target": 85, "expectedVersion": 0 }`; version 0 creates an override, and later writes require its current version. Targets range from 1–100%. Reads expose each version. Conflicting or concurrent stale writes return `409`, including creation races; reload configuration before retrying. Updates and deletes require the normal antiforgery header.
+
+Dashboard financial metrics now include `mlrRevenue` and `mlrExpenses`, plus root definition name/version and per-group targets. Other financial totals preserve their existing meaning. See [MLR rules](mlr.md) for complete coverage and contribution semantics.

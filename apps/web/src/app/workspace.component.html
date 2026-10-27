@@ -127,7 +127,7 @@
             }}
           </p>
         </div>
-        @if (section() !== "profit-loss") {
+        @if (section() !== "profit-loss" && section() !== "mlr") {
           <button
             class="btn btn-outline export-button"
             (click)="exportCsv()"
@@ -168,7 +168,13 @@
                 aria-label="Effective month"
               >
                 <option value="">
-                  {{ filters.year ? "Year to date" : "Latest month" }}
+                  {{
+                    filters.year
+                      ? section() === "mlr"
+                        ? "Year end " + filters.year
+                        : "Year to date"
+                      : "Latest month"
+                  }}
                 </option>
                 @for (month of metadata()?.months; track month) {
                   <option [value]="month">{{ monthLabel(month) }}</option>
@@ -208,7 +214,7 @@
         </section>
         @if (advanced()) {
           <section class="advanced-filters">
-            @if (section() !== "profit-loss") {
+            @if (section() !== "profit-loss" && section() !== "mlr") {
               <label
                 >Year<select
                   [(ngModel)]="filters.year"
@@ -284,7 +290,18 @@
           />
         }
       }
-      @if (!loading() && section() !== "profit-loss" && data(); as d) {
+      @if (section() === "mlr") {
+        @if (metadata(); as meta) {
+          <hhh-mlr [filters]="mlrFilters()" [metadata]="meta" [dark]="dark()" />
+        }
+      }
+      @if (
+        !loading() &&
+          section() !== "profit-loss" &&
+          section() !== "mlr" &&
+          data();
+        as d
+      ) {
         @if (isPlanned()) {
           <section class="planned-panel panel">
             <span class="large-feature-icon"
@@ -484,7 +501,7 @@
               {{ number(d.snapshotCount) }} cohort snapshots</span
             ><span><hhh-icon name="shield" /> Actuals · Synthetic data</span>
           </div>
-          @if (section() === "overview" || section() === "mlr") {
+          @if (section() === "overview") {
             <section class="kpi-grid">
               @for (card of cards(); track card.key) {
                 <article
@@ -669,15 +686,21 @@
                               ><span
                                 [style.width.%]="row.metrics.mlr || 0"
                                 [class.warning]="
-                                  (row.metrics.mlr || 0) > d.mlrTarget
+                                  (row.metrics.mlr || 0) >
+                                  (row.mlrTarget ?? d.mlrTarget)
                                 "
                               ></span></span
                             ><strong
                               [class.amber-text]="
-                                (row.metrics.mlr || 0) > d.mlrTarget
+                                (row.metrics.mlr || 0) >
+                                (row.mlrTarget ?? d.mlrTarget)
                               "
                               >{{ percent(row.metrics.mlr) }}</strong
                             ></span
+                          >
+                          <small class="cell-sub"
+                            >Target
+                            {{ percent(row.mlrTarget ?? d.mlrTarget) }}</small
                           >
                         </td>
                         <td class="numeric">
@@ -701,8 +724,9 @@
               </div>
               <div class="panel-footnote">
                 <span class="status-dot"></span> Organization MLR target:
-                {{ percent(d.mlrTarget) }} <span>·</span> Ratios use aggregate
-                amounts, not averages.
+                {{ percent(d.mlrTarget) }} <span>·</span>
+                {{ d.mlrDefinitionName }} v{{ d.mlrDefinitionVersion }} · Ratios
+                use aggregate amounts, not averages.
               </div>
             </section>
             <section class="insight-strip">
@@ -714,13 +738,17 @@
                       " payer" +
                       (alerts().length > 1 ? "s are" : " is") +
                       " above your MLR target"
-                    : "All payers are within your MLR target"
+                    : hasUnavailableMlr()
+                      ? "Some payer MLR values are unavailable"
+                      : "All payers are within your MLR target"
                 }}</strong>
                 <p>
                   {{
                     alerts().length
                       ? "Review cost composition and IBNR before drawing conclusions about performance."
-                      : "Keep an eye on medical cost trends as membership and utilization change."
+                      : hasUnavailableMlr()
+                        ? "Review the saved definition and source component coverage in MLR Analytics."
+                        : "Keep an eye on medical cost trends as membership and utilization change."
                   }}
                 </p>
               </div>
@@ -728,54 +756,6 @@
                 >Explore MLR <hhh-icon name="arrow"
               /></a>
             </section>
-          } @else if (section() === "mlr") {
-            <section class="panel">
-              <div class="panel-heading">
-                <div>
-                  <h2>Operational MLR trend</h2>
-                  <p>
-                    Medical expenses ÷ revenue × 100 · Target
-                    {{ percent(d.mlrTarget) }}
-                  </p>
-                </div>
-                <span class="tag">Operational</span>
-              </div>
-              <hhh-chart
-                [option]="mlrChart()"
-                label="Monthly operational MLR and target"
-              />
-            </section>
-            <section class="mlr-alerts">
-              @for (row of d.payers; track row.id) {
-                <article class="panel">
-                  <span class="eyebrow">{{ row.name }}</span
-                  ><strong
-                    class="large-value"
-                    [class.amber-text]="(row.metrics.mlr || 0) > d.mlrTarget"
-                    >{{ percent(row.metrics.mlr) }}</strong
-                  ><span
-                    class="status-chip"
-                    [class.warning-chip]="(row.metrics.mlr || 0) > d.mlrTarget"
-                    >{{
-                      (row.metrics.mlr || 0) > d.mlrTarget
-                        ? "Above target"
-                        : "Within target"
-                    }}</span
-                  >
-                  <p>
-                    {{ money(row.metrics.medicalExpenses) }} medical costs<br />{{
-                      money(row.metrics.revenue)
-                    }}
-                    revenue
-                  </p>
-                </article>
-              }
-            </section>
-            <div class="inline-info">
-              <hhh-icon name="info" /> Operational MLR includes IBNR and net
-              stop-loss recoveries. Regulatory MLR, rolling windows, and
-              configurable inclusion definitions are planned enhancements.
-            </div>
           } @else if (section() === "payers" || section() === "centers") {
             <section class="panel">
               <div class="panel-heading">

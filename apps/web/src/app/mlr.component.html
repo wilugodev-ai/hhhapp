@@ -1,0 +1,469 @@
+<section class="mlr-toolbar panel" aria-label="MLR analysis controls">
+  <div>
+    <span class="eyebrow">OPERATIONAL MLR</span>
+    <h2>Medical loss ratio intelligence</h2>
+  </div>
+  <label
+    >Analyze by<select
+      [(ngModel)]="groupBy"
+      (ngModelChange)="load()"
+      aria-label="MLR grouping"
+    >
+      @for (group of groups; track group.id) {
+        <option [value]="group.id">{{ group.name }}</option>
+      }
+    </select></label
+  >
+  <button
+    class="btn btn-outline"
+    (click)="editor.set(!editor())"
+    [attr.aria-expanded]="editor()"
+  >
+    <hhh-icon name="sliders" /> Definition & targets
+  </button>
+  <button
+    class="btn btn-outline"
+    (click)="export()"
+    [disabled]="busy() || !report() || exporting()"
+  >
+    <hhh-icon name="download" /> {{ exporting() ? "Exporting…" : "Export MLR" }}
+  </button>
+</section>
+@if (notice()) {
+  <div class="notice-banner" role="status">
+    {{ notice()
+    }}<button
+      class="icon-button"
+      (click)="notice.set('')"
+      aria-label="Dismiss MLR message"
+    >
+      <hhh-icon name="close" />
+    </button>
+  </div>
+}
+@if (editor()) {
+  <section class="panel mlr-editor" aria-label="MLR definition and targets">
+    <div class="panel-heading">
+      <div>
+        <h2>Organization MLR definition</h2>
+        <p>
+          Saved choices apply consistently to the dashboard, MLR analytics, and
+          financial CSV exports.
+        </p>
+      </div>
+      <span class="tag">Version {{ configuration()?.version ?? "—" }}</span>
+    </div>
+    @if (editorError()) {
+      <div class="error-banner" role="alert">
+        {{ editorError()
+        }}<button
+          class="btn btn-outline"
+          (click)="loadConfiguration()"
+          [disabled]="saving()"
+        >
+          Reload configuration
+        </button>
+      </div>
+    }
+    @if (configuration(); as config) {
+      <div class="mlr-editor-body">
+        <label class="definition-name"
+          >Definition name<input
+            [(ngModel)]="definitionName"
+            maxlength="80"
+            [disabled]="!canManage() || saving()"
+            aria-label="MLR definition name"
+        /></label>
+        <div class="mlr-category-grid">
+          <fieldset [disabled]="!canManage() || saving()">
+            <legend>Included revenue</legend>
+            @for (category of config.revenueCatalog; track category) {
+              <label class="mlr-checkbox"
+                ><input
+                  type="checkbox"
+                  [checked]="revenue.includes(category)"
+                  (change)="
+                    toggle('revenue', category, $any($event.target).checked)
+                  "
+                />{{ category }}</label
+              >
+            }
+          </fieldset>
+          <fieldset [disabled]="!canManage() || saving()">
+            <legend>Included medical expenses</legend>
+            @for (category of config.expenseCatalog; track category) {
+              <label class="mlr-checkbox"
+                ><input
+                  type="checkbox"
+                  [checked]="expenses.includes(category)"
+                  (change)="
+                    toggle('medical', category, $any($event.target).checked)
+                  "
+                />{{ category }}</label
+              >
+            }
+          </fieldset>
+        </div>
+        <p class="mlr-definition-note">
+          Operational MLR = included medical expenses ÷ included revenue × 100.
+          Administrative costs remain outside this ratio. This is not a
+          regulatory MLR calculation.
+        </p>
+        <button
+          class="btn btn-primary"
+          (click)="saveDefinition()"
+          [disabled]="
+            !canManage() ||
+            saving() ||
+            !revenue.length ||
+            !expenses.length ||
+            !definitionName.trim()
+          "
+        >
+          {{ saving() ? "Saving…" : "Save MLR definition" }}
+        </button>
+        @if (!canManage()) {
+          <p class="mlr-definition-note">
+            Your role can review the definition. A CFO or administrator can
+            change it.
+          </p>
+        }
+      </div>
+      <div class="panel-heading mlr-target-heading">
+        <div>
+          <h2>Group target overrides</h2>
+          <p>
+            Each group uses its override or the organization default of
+            {{ percent(config.organizationTarget) }}. Current targets apply to
+            the selected history.
+          </p>
+        </div>
+      </div>
+      <div class="mlr-target-form">
+        <label
+          >Group<select
+            [(ngModel)]="targetDimension"
+            (ngModelChange)="targetChanged()"
+            aria-label="Target group"
+          >
+            <option value="">Select a group</option>
+            @for (dimension of metadata().dimensions; track dimension.id) {
+              <option [value]="dimension.id">
+                {{ dimension.kind }} · {{ dimension.name }}
+              </option>
+            }
+          </select></label
+        ><label
+          >MLR target (%)<input
+            type="number"
+            [(ngModel)]="target"
+            min="1"
+            max="100"
+            step="0.01"
+            [disabled]="!canManage() || saving()"
+            aria-label="Group MLR target" /></label
+        ><button
+          class="btn btn-primary"
+          (click)="saveTarget()"
+          [disabled]="
+            !canManage() ||
+            !targetDimension ||
+            saving() ||
+            target < 1 ||
+            target > 100
+          "
+        >
+          Save group target</button
+        ><button
+          class="btn btn-outline"
+          (click)="resetTarget()"
+          [disabled]="!canManage() || !targetRule() || saving()"
+        >
+          Use organization target
+        </button>
+      </div>
+      @if (config.targets.length) {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Group</th>
+                <th>Dimension</th>
+                <th class="numeric">Target</th>
+                <th>Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (rule of config.targets; track rule.dimensionId) {
+                <tr>
+                  <td>{{ rule.name }}</td>
+                  <td>{{ rule.kind }}</td>
+                  <td class="numeric">{{ percent(rule.target) }}</td>
+                  <td>{{ rule.version }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    } @else {
+      <div class="inline-info">Loading organization configuration…</div>
+    }
+  </section>
+}
+@if (error()) {
+  <div class="error-banner" role="alert">
+    {{ error()
+    }}<button class="btn btn-outline" (click)="load()">Try again</button>
+  </div>
+}
+@if (busy()) {
+  <div class="loading-state" role="status">
+    <span class="loader"></span> Calculating weighted MLR windows…
+  </div>
+}
+@if (!busy() && report(); as r) {
+  <div class="mlr-context">
+    <span
+      >{{ month(r.endMonth) }} · {{ r.definitionName }}
+      <span class="tag">v{{ r.definitionVersion }}</span></span
+    ><span>Organization target {{ percent(r.organizationTarget) }}</span>
+  </div>
+  <section class="mlr-window-grid" aria-label="Rolling MLR windows">
+    @for (value of r.windows; track value.months) {
+      <button
+        class="panel mlr-window-card"
+        [class.active-window]="window === value.months"
+        [attr.aria-pressed]="window === value.months"
+        (click)="window = value.months; load()"
+      >
+        <span>{{
+          value.months === 1
+            ? "Monthly MLR"
+            : "Rolling " + value.months + "-month MLR"
+        }}</span
+        ><strong>{{ percent(value.mlr) }}</strong
+        ><small [class.mlr-incomplete]="!value.complete">{{
+          coverage(value)
+        }}</small
+        ><span class="mlr-window-dates"
+          >{{ month(value.startMonth, true) }} –
+          {{ month(value.endMonth, true) }} ·
+          {{ value.memberMonths | number }} member months</span
+        >
+      </button>
+    }
+  </section>
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>
+          {{ window === 1 ? "Monthly" : "Rolling " + window + "-month" }}
+          operational MLR
+        </h2>
+        <p>
+          Sum of included medical expenses ÷ sum of included revenue · Gaps
+          indicate unavailable windows
+        </p>
+      </div>
+      <span class="tag">Weighted ratio</span>
+    </div>
+    <hhh-chart
+      [option]="chart()"
+      label="Operational MLR trend with missing windows and organization target"
+    />
+    <div class="panel-footnote">
+      <hhh-icon name="info" /> Selected window:
+      {{ money(r.current.expenses) }} included medical expense ÷
+      {{ money(r.current.revenue) }} included revenue.
+      {{ coverage(r.current) }}.
+    </div>
+  </section>
+  <section class="mlr-alert-summary" [class.has-alerts]="r.alerts.length > 0">
+    <span class="insight-icon"><hhh-icon name="bell" /></span>
+    <div>
+      <strong
+        >{{ r.alerts.length }} {{ groupName().toLowerCase() }}
+        {{ r.alerts.length === 1 ? "group is" : "groups are" }} above
+        target</strong
+      >
+      <p>
+        Alerts use the selected {{ window }}-month window and each group’s
+        target. Incomplete windows do not trigger performance alerts.
+      </p>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>{{ groupName() }} MLR performance</h2>
+        <p>
+          Groups with source data in the trailing 12 months · Previous
+          comparison is the adjacent {{ window }}-month period
+        </p>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="mlr-groups-table">
+        <thead>
+          <tr>
+            <th>{{ groupName() }}</th>
+            <th class="numeric">Included revenue</th>
+            <th class="numeric">Included cost</th>
+            <th class="numeric">MLR</th>
+            <th class="numeric">Target</th>
+            <th class="numeric">Gap</th>
+            <th class="numeric">Previous MLR</th>
+            <th class="numeric">Change</th>
+            <th>Status / coverage</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of r.groups; track row.id) {
+            <tr>
+              <td>
+                <strong>{{ row.name }}</strong>
+              </td>
+              <td class="numeric">{{ money(row.values.revenue) }}</td>
+              <td class="numeric">{{ money(row.values.expenses) }}</td>
+              <td class="numeric">
+                <strong [class.amber-text]="row.status === 'above-target'">{{
+                  percent(row.values.mlr)
+                }}</strong>
+              </td>
+              <td class="numeric">
+                {{ percent(row.target)
+                }}<small class="cell-sub">{{ row.targetSource }}</small>
+              </td>
+              <td class="numeric">{{ points(row.gapPercentagePoints) }}</td>
+              <td class="numeric">{{ percent(row.previous.mlr) }}</td>
+              <td class="numeric">{{ points(row.changePercentagePoints) }}</td>
+              <td>
+                <span
+                  class="status-chip"
+                  [class.warning-chip]="row.status === 'above-target'"
+                  [class.mlr-neutral-chip]="row.status === 'unavailable'"
+                  >{{ status(row) }}</span
+                ><small class="cell-sub">{{ coverage(row.values) }}</small>
+              </td>
+              <td>
+                @if (canManage()) {
+                  <button
+                    class="icon-button"
+                    (click)="selectTarget(row)"
+                    [attr.aria-label]="'Set target for ' + row.name"
+                  >
+                    <hhh-icon name="settings" />
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="10">
+                No matching groups. Try another effective month or clear
+                dimension filters.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">EXPLAIN THE CHANGE</span>
+        <h2>MLR cost and revenue drivers</h2>
+        <p>
+          {{ month(r.current.startMonth) }}–{{
+            month(r.current.endMonth)
+          }}
+          versus {{ month(r.previous.startMonth) }}–{{
+            month(r.previous.endMonth)
+          }}
+        </p>
+      </div>
+      <strong class="mlr-attribution-total">{{
+        points(r.attribution.changePercentagePoints, 4)
+      }}</strong>
+    </div>
+    @if (r.attribution.available) {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Type</th>
+              <th class="numeric">Previous amount</th>
+              <th class="numeric">Current amount</th>
+              <th class="numeric">Amount change</th>
+              <th class="numeric">MLR contribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (
+              driver of r.attribution.drivers;
+              track driver.type + ":" + driver.category
+            ) {
+              <tr>
+                <td>
+                  <strong>{{ driver.category }}</strong>
+                </td>
+                <td>
+                  {{
+                    driver.type === "medical" ? "Medical expense" : "Revenue"
+                  }}
+                </td>
+                <td class="numeric">{{ money(driver.previousAmount) }}</td>
+                <td class="numeric">{{ money(driver.currentAmount) }}</td>
+                <td class="numeric">{{ money(driver.amountChange) }}</td>
+                <td class="numeric">
+                  <span
+                    [class.amber-text]="driver.contributionPercentagePoints > 0"
+                    [class.mlr-improvement]="
+                      driver.contributionPercentagePoints < 0
+                    "
+                    >{{ points(driver.contributionPercentagePoints, 4) }}</span
+                  >
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="mlr-reconciliation">
+              <td colspan="5">
+                Change in MLR (includes
+                {{ points(r.attribution.roundingPercentagePoints, 4) }} rounding
+                reconciliation)
+              </td>
+              <td class="numeric">
+                {{ points(r.attribution.changePercentagePoints, 4) }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="panel-footnote">
+        <hhh-icon name="info" /> Expense effects use previous-period revenue.
+        Revenue effects use current-period medical expense. Contributions
+        reconcile to the total MLR change; they include cohort-mix changes and
+        do not isolate utilization or causality.
+      </div>
+    } @else {
+      <div class="inline-info">
+        <hhh-icon name="info" /> A complete current and previous window with
+        positive included revenue is required. Previous window:
+        {{ coverage(r.previous) }}. Missing months:
+        {{ r.previous.missingMonths.join(", ") || "None" }}.
+      </div>
+    }
+  </section>
+  <div class="inline-info">
+    <hhh-icon name="shield" /> This module reports operational MLR. Regulatory
+    MLR calculations and regulatory reporting are not implemented. Targets apply
+    to the dimension selected in “Analyze by”; overall trend uses the
+    organization target.
+  </div>
+}

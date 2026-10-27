@@ -28,7 +28,9 @@ The first Phase 2 increment adds monthly, quarterly, and yearly P&L statements, 
 
 Budget comparisons use the same effective months, cohorts, and financial components as actuals. The 2026 yearly statement compares January–September actuals with January–September budget, while the chart separately shows October–December planned amounts. Missing comparisons remain unavailable. Synthetic budgets use independent planning assumptions and are stored separately from historical results.
 
-Forecasting, scenario modeling, HHH Intelligence, recurring imports, advanced MLR definitions and rolling windows, restatement ingestion, budget authoring, and Excel/PDF exports remain planned. The Python service boundary is documented; no forecasting or LLM service is running yet.
+Advanced MLR now includes weighted monthly and rolling 3/6/12-month ratios, versioned revenue/medical-category definitions, group target overrides, coverage-aware alerts, and a cost/revenue contribution breakdown that reconciles to the change in MLR. The dashboard and financial exports use the same saved definition. Definition and target updates require CFO/administrator access, detect stale versions, and record audit details.
+
+Forecasting, scenario modeling, HHH Intelligence, recurring imports, regulatory MLR, restatement ingestion, budget authoring, and Excel/PDF exports remain planned. The Python service boundary is documented; no forecasting or LLM service is running yet.
 
 ## Run locally
 
@@ -69,11 +71,15 @@ All synthetic development accounts use `Hhh-Demo-2026!`. These are demo-only ide
 dotnet test Hhh.slnx
 cd apps/web
 npm run build
+npm test
 ```
 
 API integration tests use a separate `HhhIntegrationTests` SQL Server database by default. Set `HHH_TEST_CONNECTION_STRING` to use another dedicated test database. Tests apply migrations and seed synthetic data. Financial tests verify weighted ratios, zero denominators, IBNR, recoveries, member-month aggregation, expense/revenue variance direction, and period boundaries. API tests verify isolation, authorization, antiforgery, filters, year selection, quarterly reconciliation, incomplete-period budget coverage, missing budget components, drilldown pagination, source lineage, CSV output, and logout. The test host raises the sign-in request limit to accommodate independent test accounts; the application default remains 10 requests per minute.
 
 GitHub Actions runs the backend tests against SQL Server and builds the Angular frontend.
+It also runs Angular component tests in a Node/jsdom environment. These cover missing-window rendering, MLR definition editing, viewer restrictions, version-conflict handling, and preservation of MLR/P&L period controls when payer filters change. Component tests do not replace visual browser verification.
+
+The frontend pins Vite 8.3.5 through an override while the Angular builder still pins an affected older patch. This keeps the development tooling on the patched release line; see the [upstream advisory](https://github.com/advisories/GHSA-587h-7wmj-h5pm).
 
 ## Docker demo
 
@@ -104,4 +110,5 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 - [API reference](docs/api.md)
 - [Database schema and migrations](docs/database.md)
 - [P&L periods, budgets, variance rules, and drilldowns](docs/profit-loss.md)
+- [Operational MLR definitions, rolling windows, targets, and contribution formulas](docs/mlr.md)
 - [Python forecasting service plan](services/forecasting/README.md)

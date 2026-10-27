@@ -112,6 +112,16 @@ public static class SyntheticSeed
                 await Ensure(users.AddToRoleAsync(user, role));
             }
             await BudgetSeed.RunAsync(db, orgId, orgIndex);
+            if (!await db.MlrDefinitions.AnyAsync(x => x.OrganizationId == orgId))
+            {
+                var definition = new MlrDefinition { OrganizationId = orgId, UpdatedAt = DateTimeOffset.UtcNow };
+                var revenueCategories = await db.Revenue.Where(r => db.Snapshots.Any(s => s.Id == r.SnapshotId && s.OrganizationId == orgId)).Select(r => r.Category).Distinct().ToListAsync();
+                var medicalCategories = await db.Expenses.Where(e => !e.IsAdministrative && db.Snapshots.Any(s => s.Id == e.SnapshotId && s.OrganizationId == orgId)).Select(e => e.Category).Distinct().ToListAsync();
+                definition.Components = revenueCategories.Select(c => new MlrComponent { OrganizationId = orgId, Type = "revenue", Category = c })
+                    .Concat(medicalCategories.Select(c => new MlrComponent { OrganizationId = orgId, Type = "medical", Category = c })).ToList();
+                db.MlrDefinitions.Add(definition);
+                await db.SaveChangesAsync();
+            }
         }
     }
 

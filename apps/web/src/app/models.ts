@@ -10,11 +10,14 @@ export interface Metrics {
   mlr: number | null;
   revenuePmpm: number | null;
   costPmpm: number | null;
+  mlrRevenue: number;
+  mlrExpenses: number;
 }
 export interface Group {
   id: string;
   name: string;
   metrics: Metrics;
+  mlrTarget?: number;
 }
 export interface User {
   displayName: string;
@@ -30,6 +33,8 @@ export interface Metadata {
   years: number[];
 }
 export interface Dashboard {
+  mlrDefinitionName: string;
+  mlrDefinitionVersion: number;
   organization: string;
   mlrTarget: number;
   period: string | null;

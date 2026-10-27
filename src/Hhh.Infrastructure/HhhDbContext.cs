@@ -24,6 +24,9 @@ public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : Ident
     public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
     public DbSet<BudgetSnapshot> BudgetSnapshots => Set<BudgetSnapshot>();
     public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
+    public DbSet<MlrDefinition> MlrDefinitions => Set<MlrDefinition>();
+    public DbSet<MlrComponent> MlrComponents => Set<MlrComponent>();
+    public DbSet<MlrTargetRule> MlrTargets => Set<MlrTargetRule>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -77,6 +80,20 @@ public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : Ident
         b.Entity<AuditEvent>().Property(x => x.Action).HasMaxLength(120);
         b.Entity<AuditEvent>().Property(x => x.UserId).HasMaxLength(450);
         b.Entity<AuditEvent>().HasIndex(x => new { x.OrganizationId, x.OccurredAt });
+        b.Entity<AuditEvent>().Property(x => x.DetailsJson).HasMaxLength(16000);
+        b.Entity<MlrDefinition>().HasKey(x => x.OrganizationId);
+        b.Entity<MlrDefinition>().HasOne<Organization>().WithOne().HasForeignKey<MlrDefinition>(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<MlrDefinition>().Property(x => x.Name).HasMaxLength(80);
+        b.Entity<MlrDefinition>().Property(x => x.Version).IsConcurrencyToken();
+        b.Entity<MlrDefinition>().HasMany(x => x.Components).WithOne().HasForeignKey(x => x.OrganizationId);
+        b.Entity<MlrComponent>().HasIndex(x => new { x.OrganizationId, x.Type, x.Category }).IsUnique();
+        b.Entity<MlrComponent>().Property(x => x.Category).HasMaxLength(80);
+        b.Entity<MlrComponent>().Property(x => x.Type).HasMaxLength(20);
+        b.Entity<MlrTargetRule>().HasOne<Dimension>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.DimensionId })
+            .HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<MlrTargetRule>().HasIndex(x => new { x.OrganizationId, x.DimensionId }).IsUnique();
+        b.Entity<MlrTargetRule>().Property(x => x.Target).HasPrecision(5, 2);
+        b.Entity<MlrTargetRule>().Property(x => x.Version).IsConcurrencyToken();
 
         var plan = b.Entity<BudgetPlan>();
         plan.HasAlternateKey(x => new { x.OrganizationId, x.Id });
