@@ -22,7 +22,9 @@ import { AppearanceService } from "./appearance.service";
 import { AppearanceSettingsComponent } from "./appearance-settings.component";
 import { MainNavigationComponent } from "./main-navigation.component";
 import { NavigationService, workspaceNavigation } from "./navigation.service";
-import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
+import { FinancialHealthComponent } from "./financial-health.component";
+import { DataQualityComponent } from "./data-quality.component";
+import { Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
   selector: "hhh-workspace",
@@ -38,6 +40,8 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     AdminComponent,
     AppearanceSettingsComponent,
     MainNavigationComponent,
+    FinancialHealthComponent,
+    DataQualityComponent,
   ],
   templateUrl: "./workspace.component.html",
   host: {
@@ -79,7 +83,6 @@ export class WorkspaceComponent implements OnInit {
   advanced = signal(false);
   dark = this.appearance.dark.asReadonly();
   search = signal("");
-  batches = signal<Batch[]>([]);
   filters: Filters = {
     month: "",
     year: "",
@@ -247,7 +250,6 @@ export class WorkspaceComponent implements OnInit {
       this.filters.month = metadata.months[0] || "";
       this.target = this.api.user()?.mlrTarget ?? 85;
       await this.load();
-      this.batches.set(await this.api.batches());
     } catch (e) {
       this.error.set(errorMessage(e));
       this.loading.set(false);
@@ -255,7 +257,7 @@ export class WorkspaceComponent implements OnInit {
   }
   async load() {
     const request = ++this.requestId;
-    if (this.section() === "administration") {
+    if (this.section() === "administration" || this.section() === "data") {
       this.loading.set(false);
       this.error.set("");
       return;

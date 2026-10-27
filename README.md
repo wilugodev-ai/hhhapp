@@ -122,5 +122,6 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 - [P&L periods, budgets, variance rules, and drilldowns](docs/profit-loss.md)
 - [Operational MLR definitions, rolling windows, targets, and contribution formulas](docs/mlr.md)
 - [Users, roles, organizations, setup links, and administration](docs/administration.md)
+- [Executive financial health KPIs and data quality](docs/financial-health.md)
 - [First administrator handoff](docs/first-admin-handoff.md)
 - [Python forecasting service plan](services/forecasting/README.md)

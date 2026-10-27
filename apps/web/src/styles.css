@@ -4,6 +4,7 @@
 @import "./admin.css";
 @import "./appearance.css";
 @import "./setup.css";
+@import "./financial-health.css";
 
 :root {
   font-family: Inter, "Segoe UI", Arial, sans-serif;

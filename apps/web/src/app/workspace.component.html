@@ -335,6 +335,9 @@
       @if (section() === "administration") {
         <hhh-admin />
       }
+      @if (section() === "data") {
+        <hhh-data-quality />
+      }
       @if (section() === "settings") {
         <hhh-appearance-settings />
       }
@@ -343,6 +346,7 @@
           section() !== "administration" &&
           section() !== "profit-loss" &&
           section() !== "mlr" &&
+          section() !== "data" &&
           data();
         as d
       ) {
@@ -410,58 +414,6 @@
               }
             </form>
           </section>
-        } @else if (section() === "data") {
-          <section class="panel">
-            <div class="panel-heading">
-              <div>
-                <h2>Data sources & lineage</h2>
-                <p>
-                  Persistent financial snapshots loaded into your organization.
-                </p>
-              </div>
-              <span class="tag">SQL Server</span>
-            </div>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Source batch</th>
-                    <th>Loaded</th>
-                    <th class="numeric">Snapshots</th>
-                    <th>Classification</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (batch of batches(); track batch.id) {
-                    <tr>
-                      <td>
-                        <strong>{{ batch.name }}</strong
-                        ><small class="cell-sub">{{ batch.id }}</small>
-                      </td>
-                      <td>{{ batch.loadedAt | date: "mediumDate" }}</td>
-                      <td class="numeric">{{ number(batch.snapshotCount) }}</td>
-                      <td><span class="status-chip">Synthetic</span></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-            <div class="panel-footnote">
-              <hhh-icon name="info" /> Financials cover January 2025–September
-              2026. Report month is tracked separately from effective and
-              general ledger months.
-            </div>
-          </section>
-          <section class="panel next-phase">
-            <hhh-icon name="database" />
-            <div>
-              <h2>More sources, one financial picture</h2>
-              <p>
-                CSV, Excel, SQL Server, and REST ingestion with validation and
-                reconciliation are planned for the integration phase.
-              </p>
-            </div>
-          </section>
         } @else if (d.snapshotCount === 0) {
           <section class="empty-state panel">
             <hhh-icon name="search" />
@@ -479,7 +431,16 @@
               ><span class="status-dot"></span> {{ periodLabel() }}
               <span class="context-separator">|</span>
               {{ number(d.snapshotCount) }} cohort snapshots</span
-            ><span><hhh-icon name="shield" /> Actuals · Synthetic data</span>
+            ><span
+              ><hhh-icon name="shield" /> Actuals ·
+              {{
+                d.dataStatus === "mixed"
+                  ? "Includes sample data"
+                  : d.isSynthetic
+                    ? "Sample financial data"
+                    : "Loaded financial data"
+              }}</span
+            >
           </div>
           @if (section() === "overview") {
             <section class="kpi-grid">
@@ -528,6 +489,11 @@
             </section>
           }
           @if (section() === "overview") {
+            <hhh-financial-health
+              [data]="d"
+              [filters]="filters"
+              (refresh)="load()"
+            />
             <div class="dashboard-chart-grid">
               <section class="panel revenue-panel">
                 <div class="panel-heading">

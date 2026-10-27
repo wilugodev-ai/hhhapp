@@ -50,6 +50,22 @@ afterEach(() => {
   document.documentElement.classList.remove("dark");
 });
 describe("Session-aware home navigation", () => {
+  it("opens data quality without requiring financial records or loading the financial dashboard", async () => {
+    const { api, harness, router } = await render();
+    await harness.navigateByUrl("/app/data", WorkspaceComponent);
+    await harness.fixture.whenStable();
+    const root = harness.routeNativeElement!;
+    expect(router.url).toBe("/app/data");
+    expect(root.textContent).toContain("Data quality & sources");
+    expect(root.textContent).toContain(
+      "No financial months have been recorded yet.",
+    );
+    expect(root.textContent).toContain("Not collected yet.");
+    expect(api.dashboard).not.toHaveBeenCalled();
+    expect(
+      root.querySelector('nav[aria-label="Main navigation"]'),
+    ).not.toBeNull();
+  });
   it("keeps the session when the HHH logo opens home and returns directly to the workspace", async () => {
     const { api, harness, router } = await render();
     const user = api.user();
