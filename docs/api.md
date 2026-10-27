@@ -26,6 +26,17 @@ All `/api` responses are non-cacheable. Authentication uses an HttpOnly session 
 | GET | `/api/data/batches` | Organization source batches and synthetic classification |
 | PUT | `/api/settings` | Update `{ "mlrTarget": 85 }`; CFO or administrator only |
 | GET | `/api/audit` | Most recent 100 organization audit events; administrators only |
+| POST | `/api/auth/activate` | Consume `{ userId, token, password }` setup/recovery link; CSRF and rate limiting required |
+| GET | `/api/admin/organizations` | Own organization for organization admins; all for system admins |
+| POST | `/api/admin/organizations` | System admin: `{ name, adminEmail, adminName }`; returns organization ID and first-admin setup link |
+| PUT | `/api/admin/organizations/{orgId}` | System admin: `{ name, isActive, expectedVersion }` |
+| GET | `/api/admin/organizations/{orgId}/users` | Admin-scoped directory; `search`, `status=active|inactive|invited`, `page` (25 per page) |
+| POST | `/api/admin/organizations/{orgId}/users` | Admin: `{ email, displayName, role }`; returns private single-use setup path |
+| PUT | `/api/admin/organizations/{orgId}/users/{id}` | Admin: `{ displayName, role, isActive, expectedVersion }`; revokes sessions |
+| POST | `/api/admin/organizations/{orgId}/users/{id}/{action}` | Admin: `action=invitation|recovery|revoke|unlock`, `{ expectedVersion }` |
+| GET | `/api/admin/organizations/{orgId}/audit` | Admin-scoped actor/details history; `page` (25 per page) |
+
+Admin routes require an organization/system administrator. Unauthorized organization or user IDs return 404. Organization admins cannot assign/manage system administrators. Self changes, last-admin removal, and stale versions return 409. Setup paths contain a fragment token and expire in 48 hours. Creation, invitation replacement, and recovery return `{ user, setupPath, expiresAt }`. No email is sent. See [administration rules and bootstrap](administration.md).
 
 ## Analytics and export parameters
 

@@ -1,0 +1,595 @@
+<div class="admin-workspace">
+  @if (!allowed()) {
+    <section class="panel admin-empty">
+      <span class="eyebrow">WORKSPACE ACCESS</span>
+      <h2>Administrator access required</h2>
+      <p>
+        Your role is {{ api.user()?.roles?.[0] }}. An organization administrator
+        manages users and reviews audit activity.
+      </p>
+    </section>
+  } @else {
+    <section class="panel admin-toolbar">
+      <div>
+        <span class="eyebrow">ACCESS & GOVERNANCE</span>
+        <h2>People and permissions</h2>
+        <p>Manage access to your organization's financial workspace.</p>
+      </div>
+      <div class="admin-buttons">
+        <button
+          class="btn btn-outline"
+          (click)="reload()"
+          [disabled]="loading() || busy()"
+        >
+          Reload directory
+        </button>
+        @if (isSystem()) {
+          <button
+            class="btn btn-outline"
+            (click)="orgCreateOpen.set(!orgCreateOpen())"
+            [disabled]="busy()"
+          >
+            New organization
+          </button>
+        }
+        <button
+          class="btn btn-primary"
+          (click)="inviteOpen.set(!inviteOpen())"
+          [disabled]="loading() || busy() || !selected()?.isActive"
+        >
+          Invite user
+        </button>
+      </div>
+    </section>
+    @if (error()) {
+      <div class="error-banner" role="alert">{{ error() }}</div>
+    }
+    @if (notice()) {
+      <div class="notice-banner" role="status">{{ notice() }}</div>
+    }
+    @if (selected() && !selected()!.isActive) {
+      <div class="inline-info">
+        This organization is inactive. Sign-in and account setup are blocked
+        until a system administrator reactivates it.
+      </div>
+    }
+    <section class="admin-summary" aria-label="Organization summary">
+      <div class="panel">
+        <small>ORGANIZATION</small
+        ><strong>{{ selected()?.name || "Loading workspace" }}</strong
+        ><span>{{
+          selected()?.isActive ? "Active workspace" : "Inactive workspace"
+        }}</span>
+      </div>
+      <div class="panel">
+        <small>PEOPLE</small><strong>{{ selected()?.userCount ?? 0 }}</strong
+        ><span
+          >{{ selected()?.activeUsers ?? 0 }} active accounts with completed
+          setup</span
+        >
+      </div>
+      <div class="panel">
+        <small>YOUR ACCESS</small
+        ><strong>{{
+          isSystem() ? "Platform administrator" : "Organization administrator"
+        }}</strong
+        ><span>{{
+          isSystem()
+            ? "Manage organizations and their users"
+            : "Manage this organization only"
+        }}</span>
+      </div>
+    </section>
+    @if (isSystem()) {
+      <section class="panel admin-org-picker">
+        <label
+          >Organization<select
+            name="organization"
+            [(ngModel)]="selectedOrg"
+            (ngModelChange)="changeOrganization()"
+            [disabled]="busy() || loading()"
+          >
+            @for (org of organizations(); track org.id) {
+              <option [value]="org.id">
+                {{ org.name }}{{ org.isActive ? "" : " (inactive)" }}
+              </option>
+            }
+          </select></label
+        >
+        <button
+          class="btn btn-outline"
+          (click)="editOrganization()"
+          [disabled]="busy() || loading()"
+        >
+          Edit organization
+        </button>
+      </section>
+    }
+    @if (orgCreateOpen() && isSystem()) {
+      <section class="panel admin-editor">
+        <h3>Create organization</h3>
+        <p>
+          The first organization administrator sets their own password through a
+          private setup link.
+        </p>
+        <form (ngSubmit)="createOrganization()" class="admin-form">
+          <label
+            >Organization name<input
+              name="orgName"
+              [(ngModel)]="orgName"
+              required
+              minlength="2"
+              maxlength="180"
+          /></label>
+          <label
+            >Administrator name<input
+              name="orgAdminName"
+              [(ngModel)]="orgAdminName"
+              required
+              minlength="2"
+              maxlength="180"
+          /></label>
+          <label
+            >Administrator email<input
+              type="email"
+              name="orgAdminEmail"
+              [(ngModel)]="orgAdminEmail"
+              required
+              maxlength="254"
+          /></label>
+          <div class="admin-buttons">
+            <button class="btn btn-primary" [disabled]="busy()">
+              Create organization</button
+            ><button
+              type="button"
+              class="btn btn-outline"
+              (click)="orgCreateOpen.set(false)"
+              [disabled]="busy()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+    }
+    @if (orgEditing() && isSystem()) {
+      <section class="panel admin-editor">
+        <h3>Edit organization</h3>
+        <form (ngSubmit)="saveOrganization()" class="admin-form">
+          <label
+            >Organization name<input
+              name="orgEditName"
+              [(ngModel)]="orgEditName"
+              required
+              minlength="2"
+              maxlength="180"
+          /></label>
+          <label class="admin-check"
+            ><input
+              type="checkbox"
+              name="orgActive"
+              [(ngModel)]="orgEditActive"
+              [disabled]="selectedOrg === api.user()?.organizationId"
+            />Organization active</label
+          >
+          <p class="admin-form-note">
+            Deactivation blocks sign-in and revokes all sessions and setup links
+            in this organization. Your own organization stays active.
+          </p>
+          <div class="admin-buttons">
+            <button class="btn btn-primary" [disabled]="busy()">
+              Save organization</button
+            ><button
+              type="button"
+              class="btn btn-outline"
+              (click)="orgEditing.set(false)"
+              [disabled]="busy()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+    }
+    @if (inviteOpen()) {
+      <section class="panel admin-editor">
+        <h3>Invite a team member</h3>
+        <p>
+          Create their account and share a setup link privately. No email is
+          sent automatically.
+        </p>
+        <form (ngSubmit)="invite()" class="admin-form">
+          <label
+            >Full name<input
+              name="inviteName"
+              [(ngModel)]="inviteName"
+              required
+              minlength="2"
+              maxlength="180"
+          /></label>
+          <label
+            >Work email<input
+              name="inviteEmail"
+              type="email"
+              [(ngModel)]="inviteEmail"
+              required
+              maxlength="254"
+          /></label>
+          <label
+            >Role<select name="inviteRole" [(ngModel)]="inviteRole">
+              @for (role of roleCatalog(); track role) {
+                <option [value]="role">{{ role }}</option>
+              }
+            </select></label
+          >
+          <div class="admin-buttons">
+            <button
+              class="btn btn-primary"
+              [disabled]="busy() || !selected()?.isActive"
+            >
+              Create setup link</button
+            ><button
+              type="button"
+              class="btn btn-outline"
+              (click)="inviteOpen.set(false)"
+              [disabled]="busy()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+    }
+    @if (setup(); as linkDetails) {
+      <section class="panel admin-link" aria-label="Private setup link">
+        <h3>Private setup link</h3>
+        <p>
+          For <strong>{{ linkDetails.user.email }}</strong
+          >. Expires {{ linkDetails.expiresAt | date: "medium" }}. The link
+          works once; anyone holding it can set this account's password.
+        </p>
+        <label
+          >Setup link<input aria-label="Setup link" [value]="link()" readonly
+        /></label>
+        <div class="admin-buttons">
+          <button class="btn btn-primary" (click)="copyLink()">Copy link</button
+          ><button class="btn btn-outline" (click)="setup.set(null)">
+            Dismiss link
+          </button>
+        </div>
+      </section>
+    }
+    @if (editing(); as user) {
+      <section class="panel admin-editor" aria-label="Edit account">
+        <h3>Edit {{ user.displayName }}</h3>
+        <p>
+          {{ user.email }}. Saving revokes previous sessions. Another active
+          administrator must remain in the organization.
+        </p>
+        <form (ngSubmit)="saveUser()" class="admin-form">
+          <label
+            >Full name<input
+              name="editName"
+              [(ngModel)]="editName"
+              required
+              minlength="2"
+              maxlength="180"
+          /></label>
+          <label
+            >Role<select name="editRole" [(ngModel)]="editRole">
+              @for (role of roleCatalog(); track role) {
+                <option [value]="role">{{ role }}</option>
+              }
+            </select></label
+          >
+          <label class="admin-check"
+            ><input
+              type="checkbox"
+              name="editActive"
+              [(ngModel)]="editActive"
+            />Account active</label
+          >
+          <div class="admin-buttons">
+            <button class="btn btn-primary" [disabled]="busy()">
+              Save account</button
+            ><button
+              type="button"
+              class="btn btn-outline"
+              (click)="editing.set(null)"
+              [disabled]="busy()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+    }
+    @if (action(); as pending) {
+      <section
+        class="panel admin-editor"
+        role="region"
+        aria-label="Confirm account action"
+      >
+        <h3>{{ pending.label }} for {{ pending.user.displayName }}</h3>
+        <p>
+          @if (pending.operation === "recovery") {
+            This revokes current sessions and blocks sign-in until the user sets
+            a new password through the recovery link.
+          } @else if (pending.operation === "invitation") {
+            This replaces any previous setup link.
+          } @else if (pending.operation === "unlock") {
+            This clears the temporary sign-in lockout and revokes previous
+            sessions.
+          } @else {
+            The user will need to sign in again on every device.
+          }
+        </p>
+        <div class="admin-buttons">
+          <button
+            class="btn btn-primary"
+            (click)="confirmAction()"
+            [disabled]="busy()"
+          >
+            Confirm {{ pending.label.toLowerCase() }}</button
+          ><button
+            class="btn btn-outline"
+            (click)="action.set(null)"
+            [disabled]="busy()"
+          >
+            Cancel
+          </button>
+        </div>
+      </section>
+    }
+    <section class="panel admin-directory" [attr.aria-busy]="loading()">
+      <div class="panel-heading">
+        <div>
+          <h2>User directory</h2>
+          <p>
+            {{ directory()?.total ?? 0 }} matching accounts. Account changes
+            take effect on the next request.
+          </p>
+        </div>
+      </div>
+      <form class="admin-search" (ngSubmit)="load(1)">
+        <label
+          >Search people<input
+            name="search"
+            [(ngModel)]="search"
+            placeholder="Name or email"
+            maxlength="180" /></label
+        ><label
+          >Status<select name="status" [(ngModel)]="status">
+            <option value="">All accounts</option>
+            <option value="active">Active</option>
+            <option value="invited">Setup pending</option>
+            <option value="inactive">Inactive</option>
+          </select></label
+        ><button class="btn btn-outline" [disabled]="busy() || loading()">
+          Apply filters
+        </button>
+      </form>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Account controls</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of directory()?.users ?? []; track user.id) {
+              <tr>
+                <td>
+                  <strong>{{ user.displayName }}</strong
+                  ><small class="admin-secondary">{{ user.email }}</small>
+                </td>
+                <td>{{ user.role }}</td>
+                <td>
+                  <span
+                    class="admin-badge"
+                    [class.admin-inactive]="!user.isActive"
+                    [class.admin-pending]="
+                      user.invitationPending && user.isActive
+                    "
+                    >{{ statusLabel(user) }}</span
+                  >
+                  @if (locked(user)) {
+                    <small class="admin-secondary"
+                      >Locked until {{ user.lockoutEnd | date: "short" }}</small
+                    >
+                  }
+                </td>
+                <td>
+                  @if (canEdit(user)) {
+                    <div class="admin-row-buttons">
+                      <button
+                        (click)="edit(user)"
+                        [disabled]="busy() || loading()"
+                      >
+                        Edit
+                      </button>
+                      @if (user.isActive && selected()?.isActive) {
+                        @if (user.invitationPending) {
+                          <button
+                            (click)="
+                              ask(user, 'invitation', 'Replace setup link')
+                            "
+                            [disabled]="busy() || loading()"
+                          >
+                            New setup link
+                          </button>
+                        } @else {
+                          <button
+                            (click)="ask(user, 'revoke', 'Revoke sessions')"
+                            [disabled]="busy() || loading()"
+                          >
+                            Revoke sessions</button
+                          ><button
+                            (click)="
+                              ask(user, 'recovery', 'Create recovery link')
+                            "
+                            [disabled]="busy() || loading()"
+                          >
+                            Password recovery
+                          </button>
+                        }
+                      }
+                      @if (locked(user)) {
+                        <button
+                          (click)="ask(user, 'unlock', 'Unlock account')"
+                          [disabled]="busy() || loading()"
+                        >
+                          Unlock
+                        </button>
+                      }
+                    </div>
+                  } @else {
+                    <small class="admin-secondary">{{
+                      user.id === api.user()?.id
+                        ? "Your account: another admin manages changes"
+                        : "System administrator manages this account"
+                    }}</small>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">
+                  {{
+                    loading()
+                      ? "Loading people..."
+                      : "No accounts match these filters."
+                  }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="admin-pagination">
+        <span>Page {{ page }} · {{ directory()?.total ?? 0 }} accounts</span>
+        <div class="admin-buttons">
+          <button
+            class="btn btn-outline"
+            (click)="load(page - 1)"
+            [disabled]="page <= 1 || loading() || busy()"
+          >
+            Previous</button
+          ><button
+            class="btn btn-outline"
+            (click)="load(page + 1)"
+            [disabled]="
+              page * 25 >= (directory()?.total ?? 0) || loading() || busy()
+            "
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="panel admin-permissions">
+      <div class="panel-heading">
+        <div>
+          <h2>Role permissions</h2>
+          <p>Choose a role based on the access a person needs.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Analytics & exports</th>
+              <th>Financial settings</th>
+              <th>Users & audit</th>
+              <th>Organizations</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (role of roleCatalog(); track role) {
+              <tr>
+                <td>{{ role }}</td>
+                <td>View & export</td>
+                <td>{{ settingsRole(role) ? "Manage" : "View only" }}</td>
+                <td>{{ adminRole(role) ? "Manage" : "No access" }}</td>
+                <td>
+                  {{
+                    role === "System Administrator"
+                      ? "Manage all"
+                      : "Own workspace only"
+                  }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel admin-audit">
+      <div class="panel-heading">
+        <div>
+          <h2>Audit activity</h2>
+          <p>Who changed access, what changed, and when.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Performed by</th>
+              <th>Time</th>
+              <th>Changes</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (event of audit()?.items ?? []; track event.id) {
+              <tr>
+                <td class="admin-event">{{ eventLabel(event.action) }}</td>
+                <td>{{ event.actor }}</td>
+                <td>{{ event.occurredAt | date: "medium" }}</td>
+                <td>
+                  @if (event.detailsJson) {
+                    <details>
+                      <summary>View changes</summary>
+                      <pre>{{ event.detailsJson }}</pre>
+                    </details>
+                  } @else {
+                    <span class="admin-secondary">No additional details</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">No activity yet.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="admin-pagination">
+        <span>Page {{ auditPage }} · {{ audit()?.total ?? 0 }} events</span>
+        <div class="admin-buttons">
+          <button
+            class="btn btn-outline"
+            (click)="load(page, auditPage - 1)"
+            [disabled]="auditPage <= 1 || loading() || busy()"
+          >
+            Previous events</button
+          ><button
+            class="btn btn-outline"
+            (click)="load(page, auditPage + 1)"
+            [disabled]="
+              auditPage * 25 >= (audit()?.total ?? 0) || loading() || busy()
+            "
+          >
+            Next events
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+</div>

@@ -295,8 +295,12 @@
           <hhh-mlr [filters]="mlrFilters()" [metadata]="meta" [dark]="dark()" />
         }
       }
+      @if (section() === "administration") {
+        <hhh-admin />
+      }
       @if (
         !loading() &&
+          section() !== "administration" &&
           section() !== "profit-loss" &&
           section() !== "mlr" &&
           data();
@@ -365,70 +369,6 @@
                 >
               }
             </form>
-          </section>
-        } @else if (section() === "administration") {
-          <section class="panel">
-            <div class="panel-heading">
-              <div>
-                <h2>Workspace access</h2>
-                <p>Your authenticated organization and permissions.</p>
-              </div>
-              <hhh-icon name="shield" />
-            </div>
-            <div class="access-details">
-              <div>
-                <span>Organization</span
-                ><strong>{{ api.user()?.organization }}</strong>
-              </div>
-              <div>
-                <span>Signed in as</span
-                ><strong>{{ api.user()?.displayName }}</strong>
-              </div>
-              <div>
-                <span>Role</span><strong>{{ api.user()?.roles?.[0] }}</strong>
-              </div>
-              <div>
-                <span>Data environment</span
-                ><strong>Synthetic development data</strong>
-              </div>
-            </div>
-          </section>
-          <section class="panel">
-            <div class="panel-heading">
-              <div>
-                <h2>Audit activity</h2>
-                <p>Authentication, exports, and settings changes.</p>
-              </div>
-            </div>
-            @if (canAudit()) {
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Event</th>
-                      <th>Occurred at</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (event of audit(); track event.id) {
-                      <tr>
-                        <td>{{ event.action }}</td>
-                        <td>{{ event.occurredAt | date: "medium" }}</td>
-                      </tr>
-                    } @empty {
-                      <tr>
-                        <td colspan="2">No audit activity yet.</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            } @else {
-              <div class="inline-info">
-                <hhh-icon name="lock" /> Audit records are available to
-                organization administrators.
-              </div>
-            }
           </section>
         } @else if (section() === "data") {
           <section class="panel">

@@ -8,6 +8,13 @@ import { firstValueFrom } from "rxjs";
 import { Batch, Dashboard, Filters, Metadata, User } from "./models";
 import { ProfitLossDetails, ProfitLossReport } from "./profit-loss.models";
 import { MlrConfiguration, MlrReport } from "./mlr.models";
+import {
+  AdminAudit,
+  AdminOrganization,
+  AdminUser,
+  SetupLink,
+  UserDirectory,
+} from "./admin.models";
 
 @Injectable({ providedIn: "root" })
 export class ApiService {
@@ -41,7 +48,13 @@ export class ApiService {
     this.user.set(await firstValueFrom(this.http.get<User>("/api/auth/me")));
   }
   async logout() {
-    await firstValueFrom(this.http.post("/api/auth/logout", {}));
+    try {
+      await firstValueFrom(this.http.post("/api/auth/logout", {}));
+    } catch (error) {
+      // Revoked/expired sessions are already signed out on the server.
+      if (!(error instanceof HttpErrorResponse && error.status === 401))
+        throw error;
+    }
     this.user.set(null);
     await this.csrf();
   }
@@ -57,6 +70,91 @@ export class ApiService {
   }
   batches() {
     return firstValueFrom(this.http.get<Batch[]>("/api/data/batches"));
+  }
+  adminOrganizations() {
+    return firstValueFrom(
+      this.http.get<AdminOrganization[]>("/api/admin/organizations"),
+    );
+  }
+  adminUsers(org: string, search = "", status = "", page = 1) {
+    return firstValueFrom(
+      this.http.get<UserDirectory>(`/api/admin/organizations/${org}/users`, {
+        params: { search, status, page },
+      }),
+    );
+  }
+  adminAudit(org: string, page = 1) {
+    return firstValueFrom(
+      this.http.get<AdminAudit>(`/api/admin/organizations/${org}/audit`, {
+        params: { page },
+      }),
+    );
+  }
+  inviteUser(
+    org: string,
+    body: { email: string; displayName: string; role: string },
+  ) {
+    return firstValueFrom(
+      this.http.post<SetupLink>(`/api/admin/organizations/${org}/users`, body),
+    );
+  }
+  updateUser(
+    org: string,
+    id: string,
+    body: {
+      displayName: string;
+      role: string;
+      isActive: boolean;
+      expectedVersion: number;
+    },
+  ) {
+    return firstValueFrom(
+      this.http.put<AdminUser>(
+        `/api/admin/organizations/${org}/users/${id}`,
+        body,
+      ),
+    );
+  }
+  adminUserAction(
+    org: string,
+    id: string,
+    action: string,
+    expectedVersion: number,
+  ) {
+    return firstValueFrom(
+      this.http.post<SetupLink | AdminUser>(
+        `/api/admin/organizations/${org}/users/${id}/${action}`,
+        { expectedVersion },
+      ),
+    );
+  }
+  createOrganization(body: {
+    name: string;
+    adminEmail: string;
+    adminName: string;
+  }) {
+    return firstValueFrom(
+      this.http.post<{ organizationId: string; invitation: SetupLink }>(
+        "/api/admin/organizations",
+        body,
+      ),
+    );
+  }
+  updateOrganization(
+    id: string,
+    body: { name: string; isActive: boolean; expectedVersion: number },
+  ) {
+    return firstValueFrom(
+      this.http.put(`/api/admin/organizations/${id}`, body),
+    );
+  }
+  async activateAccount(body: {
+    userId: string;
+    token: string;
+    password: string;
+  }) {
+    await this.csrf();
+    return firstValueFrom(this.http.post("/api/auth/activate", body));
   }
   mlr(filters: Filters) {
     return firstValueFrom(

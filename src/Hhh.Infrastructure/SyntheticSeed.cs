@@ -102,8 +102,9 @@ public static class SyntheticSeed
 
             var accounts = orgIndex == 0
                 ? new[] { ("demo@hhh.local", "Alex Morgan", Roles.Cfo), ("analyst@hhh.local", "Jordan Lee", Roles.Analyst),
-                    ("viewer@hhh.local", "Taylor Reed", Roles.Viewer), ("admin@hhh.local", "Casey Rivera", Roles.OrganizationAdministrator) }
-                : new[] { ("summit@hhh.local", "Sam Patel", Roles.Cfo) };
+                    ("viewer@hhh.local", "Taylor Reed", Roles.Viewer), ("admin@hhh.local", "Casey Rivera", Roles.OrganizationAdministrator),
+                    ("sysadmin@hhh.local", "Morgan Blake", Roles.SystemAdministrator) }
+                : new[] { ("summit@hhh.local", "Sam Patel", Roles.Cfo), ("summit-admin@hhh.local", "Jamie Park", Roles.OrganizationAdministrator) };
             foreach (var (email, name, role) in accounts)
             {
                 if (await users.FindByEmailAsync(email) is not null) continue;

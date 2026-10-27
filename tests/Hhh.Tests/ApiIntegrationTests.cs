@@ -27,7 +27,7 @@ public sealed class HhhFactory : WebApplicationFactory<Program>
     }
 }
 
-public sealed class ApiIntegrationTests(HhhFactory factory) : IClassFixture<HhhFactory>
+public sealed partial class ApiIntegrationTests(HhhFactory factory) : IClassFixture<HhhFactory>
 {
     [Fact]
     public async Task Unauthenticated_data_is_protected_and_csrf_is_required()

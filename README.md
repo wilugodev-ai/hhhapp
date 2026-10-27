@@ -32,6 +32,8 @@ Advanced MLR now includes weighted monthly and rolling 3/6/12-month ratios, vers
 
 Forecasting, scenario modeling, HHH Intelligence, recurring imports, regulatory MLR, restatement ingestion, budget authoring, and Excel/PDF exports remain planned. The Python service boundary is documented; no forecasting or LLM service is running yet.
 
+Administration now supports a searchable user directory, role and activation changes, private expiring setup/recovery links, session revocation, lockout reset, and paginated audit details. System administrators can provision and manage organizations. Version checks, transactional last-administrator protection, and per-request account validation enforce access changes across the API. See [administration and first-admin setup](docs/administration.md).
+
 ## Run locally
 
 Prerequisites: .NET 10 SDK, Node.js 24.15 or later in the Node 24 release line, and SQL Server 2019 or later. The default development connection uses Windows authentication to `.\SQLEXPRESS01` and a dedicated `HhhDevelopment` database. Override it using `ConnectionStrings__Hhh` for another instance. Use an account that can create this development database and apply migrations.
@@ -61,9 +63,11 @@ Development startup applies committed EF Core migrations and seeds synthetic dat
 | `analyst@hhh.local` | Financial Analyst | Horizon Care Partners |
 | `viewer@hhh.local` | Executive Viewer | Horizon Care Partners |
 | `admin@hhh.local` | Organization Administrator | Horizon Care Partners |
+| `sysadmin@hhh.local` | System Administrator | Horizon Care Partners |
 | `summit@hhh.local` | Chief Financial Officer | Summit Health Group |
+| `summit-admin@hhh.local` | Organization Administrator | Summit Health Group |
 
-All synthetic development accounts use `Hhh-Demo-2026!`. These are demo-only identities and must never be used for real data. Real-user provisioning and enterprise identity integration remain deployment work.
+All synthetic development accounts use `Hhh-Demo-2026!`. These are demo-only identities and must never be used for real data. Non-demo deployments use the one-off first-admin bootstrap and private setup links. Enterprise SSO, MFA, and email delivery remain deployment work.
 
 ## Verify
 
@@ -111,4 +115,5 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 - [Database schema and migrations](docs/database.md)
 - [P&L periods, budgets, variance rules, and drilldowns](docs/profit-loss.md)
 - [Operational MLR definitions, rolling windows, targets, and contribution formulas](docs/mlr.md)
+- [Users, roles, organizations, setup links, and administration](docs/administration.md)
 - [Python forecasting service plan](services/forecasting/README.md)

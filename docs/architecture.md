@@ -8,6 +8,8 @@ Advanced MLR adds a shared, versioned component selection, complete rolling wind
 
 ## Boundaries
 
+`AdministrationService` owns organization-scoped account provisioning, versioned role/status changes, private setup and recovery links, lockout reset, session revocation, and paginated audit history. System administrators have explicit cross-organization administration routes; financial endpoints continue to use the signed-in organization. A SQL Server application lock serializes access changes and single-use link consumption. Actor privileges are rechecked inside the transaction. See [administration](administration.md).
+
 - `src/Hhh.Api`: ASP.NET Core API, cookie authentication, organization authorization, analytics, exports, health checks, and audit access.
 - `src/Hhh.Domain`: financial entities, snapshot grain, metric definitions, and aggregation rules.
 - `src/Hhh.Infrastructure`: SQL Server EF Core persistence, Identity, migrations, and deterministic synthetic seed data.

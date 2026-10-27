@@ -5,6 +5,8 @@ public sealed class Organization
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public decimal MlrTarget { get; set; } = 85m;
+    public bool IsActive { get; set; } = true;
+    public int AccessVersion { get; set; } = 1;
 }
 
 public enum DimensionKind { Payer, MedicalCenter, Provider, Contract, Plan, LineOfBusiness, Region }

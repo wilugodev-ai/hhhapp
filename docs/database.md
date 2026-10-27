@@ -45,3 +45,9 @@ Budgets are independent of actuals. Planned membership is stored once per budget
 The additive `MlrDefinitionsAndTargets` migration stores one `MlrDefinition` per organization, unique selected revenue/medical `MlrComponents`, and unique organization/dimension `MlrTargetRule` overrides. Definition/target versions are EF concurrency tokens. Composite organization/dimension foreign keys prevent cross-organization target references.
 
 `AuditEvents.DetailsJson` preserves definition category sets, versions, and target changes alongside the actor and time. MLR mutations and their audit events commit in the same `SaveChanges` transaction. Definition reads join their components in one statement to avoid mismatched versions and component sets during concurrent updates. Actual financial facts and budget plans are unchanged by this migration.
+
+## Administration schema
+
+The additive `UserAdministration` migration adds active flags and access concurrency versions to organizations/users, account creation time, pending setup status, and nullable setup token hash/expiry. Existing accounts and organizations default to active, and versions start at one. A scoped organization/display-name index supports the user directory. Identity continues to store password hashes and roles; plaintext setup links are never persisted.
+
+Access mutations use a transaction-owned SQL Server application lock plus optimistic versions. User/role changes and audit records commit atomically. There are no hard-delete administration routes. Organization deactivation rotates user security stamps and invalidates setup links. See [administration rules](administration.md).

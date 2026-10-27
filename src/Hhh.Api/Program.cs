@@ -37,12 +37,14 @@ builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme).AddCooki
         var principal = ctx.Principal;
         if (principal is null) { ctx.RejectPrincipal(); return; }
         var user = await users.GetUserAsync(principal);
-        if (user is null || !Guid.TryParse(principal.FindFirstValue("organization"), out var org) || user.OrganizationId != org
+        if (user is null || !user.IsActive || user.InvitationPending || !Guid.TryParse(principal.FindFirstValue("organization"), out var org) || user.OrganizationId != org
             || principal.FindFirstValue("AspNet.Identity.SecurityStamp") != user.SecurityStamp)
         {
             ctx.RejectPrincipal();
             return;
         }
+        var db = ctx.HttpContext.RequestServices.GetRequiredService<HhhDbContext>();
+        if (!await db.Organizations.AnyAsync(o => o.Id == org && o.IsActive)) { ctx.RejectPrincipal(); return; }
         var roles = await users.GetRolesAsync(user);
         if (!roles.ToHashSet(StringComparer.Ordinal).SetEquals(principal.FindAll(ClaimTypes.Role).Select(x => x.Value)))
             ctx.RejectPrincipal();
@@ -52,12 +54,14 @@ builder.Services.AddAuthorization(o =>
 {
     o.AddPolicy("ManageSettings", p => p.RequireRole(Roles.Cfo, Roles.OrganizationAdministrator, Roles.SystemAdministrator));
     o.AddPolicy("Audit", p => p.RequireRole(Roles.OrganizationAdministrator, Roles.SystemAdministrator));
+    o.AddPolicy("SystemAdmin", p => p.RequireRole(Roles.SystemAdministrator));
 });
 builder.Services.AddAntiforgery(o => o.HeaderName = "X-XSRF-TOKEN");
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<MlrConfigurationService>();
 builder.Services.AddScoped<MlrService>();
 builder.Services.AddScoped<ProfitLossService>();
+builder.Services.AddScoped<AdministrationService>();
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = 429;
@@ -74,6 +78,16 @@ app.Use(async (context, next) =>
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     if (context.Request.Path.StartsWithSegments("/api")) context.Response.Headers.CacheControl = "no-cache, no-store";
     try { await next(); }
+    catch (AdministrationException ex) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = ex.Status;
+        await context.Response.WriteAsJsonAsync(new { title = ex.Message, status = ex.Status });
+    }
+    catch (SqlException ex) when (!context.Response.HasStarted && ex.Number == 51000)
+    {
+        context.Response.StatusCode = 409;
+        await context.Response.WriteAsJsonAsync(new { title = "Access administration is busy. Try again.", status = 409 });
+    }
     catch (ArgumentException ex) when (!context.Response.HasStarted)
     {
         context.Response.StatusCode = 400;
@@ -83,7 +97,7 @@ app.Use(async (context, next) =>
         || ex is DbUpdateException { InnerException: SqlException sql } && sql.Number is 2601 or 2627))
     {
         context.Response.StatusCode = 409;
-        await context.Response.WriteAsJsonAsync(new { title = "MLR settings changed. Reload the configuration before saving again.", status = 409 });
+        await context.Response.WriteAsJsonAsync(new { title = "The record changed or conflicts with an existing record. Reload before saving again.", status = 409 });
     }
 });
 app.UseAuthentication();
@@ -126,7 +140,8 @@ app.MapPost("/api/auth/login", async (LoginRequest request, UserManager<AppUser>
     if (string.IsNullOrWhiteSpace(request.Email) || request.Email.Length > 254 || request.Password is null || request.Password.Length > 256)
         return Results.BadRequest(new { title = "Enter a valid email and password." });
     var user = await users.FindByEmailAsync(request.Email);
-    if (user is null) return Results.Json(new { title = "Email or password is incorrect." }, statusCode: 401);
+    if (user is null || !user.IsActive || user.InvitationPending || !await db.Organizations.AnyAsync(o => o.Id == user.OrganizationId && o.IsActive))
+        return Results.Json(new { title = "Email or password is incorrect, or the account is unavailable." }, statusCode: 401);
     var result = await signIn.CheckPasswordSignInAsync(user, request.Password, true);
     if (!result.Succeeded) return Results.Json(new { title = "Email or password is incorrect, or this account is temporarily locked." }, statusCode: 401);
     await signIn.SignInWithClaimsAsync(user, false, [new Claim("organization", user.OrganizationId.ToString())]);
@@ -139,11 +154,16 @@ app.MapPost("/api/auth/demo", async (UserManager<AppUser> users, SignInManager<A
 {
     if (!app.Environment.IsDevelopment() || !app.Configuration.GetValue<bool>("Demo:Enabled")) return Results.NotFound();
     var user = await users.FindByEmailAsync("demo@hhh.local");
-    if (user is null) return Results.NotFound();
+    if (user is null || !user.IsActive || user.InvitationPending || !await db.Organizations.AnyAsync(o => o.Id == user.OrganizationId && o.IsActive)) return Results.NotFound();
     await signIn.SignInWithClaimsAsync(user, false, [new Claim("organization", user.OrganizationId.ToString())]);
     db.AuditEvents.Add(new() { OrganizationId = user.OrganizationId, UserId = user.Id, Action = "auth.demo", OccurredAt = DateTimeOffset.UtcNow });
     await db.SaveChangesAsync();
     return Results.Ok(new { success = true });
+}).RequireRateLimiting("login");
+
+app.MapPost("/api/auth/activate", async (AcceptInvitationRequest request, AdministrationService service, CancellationToken ct) =>
+{
+    await service.Accept(request, ct); return Results.Ok(new { message = "Your account is ready. Sign in with your password." });
 }).RequireRateLimiting("login");
 
 var api = app.MapGroup("/api").RequireAuthorization();
@@ -152,7 +172,7 @@ api.MapGet("/auth/me", async (ClaimsPrincipal principal, UserManager<AppUser> us
     var user = (await users.GetUserAsync(principal))!;
     var orgId = Org(principal);
     var organization = await db.Organizations.AsNoTracking().SingleAsync(x => x.Id == orgId);
-    return Results.Ok(new { user.DisplayName, user.Email, organization = organization.Name, roles = await users.GetRolesAsync(user), organization.MlrTarget });
+    return Results.Ok(new { user.Id, organizationId = orgId, user.DisplayName, user.Email, organization = organization.Name, roles = await users.GetRolesAsync(user), organization.MlrTarget });
 });
 api.MapPost("/auth/logout", async (HttpContext ctx, HhhDbContext db) =>
 {
@@ -161,6 +181,20 @@ api.MapPost("/auth/logout", async (HttpContext ctx, HhhDbContext db) =>
     return Results.Ok(new { success = true });
 });
 api.MapGet("/analytics/filters", (ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) => analytics.Metadata(Org(principal), ct));
+var administration = api.MapGroup("/admin").RequireAuthorization("Audit");
+administration.MapGet("/organizations", (ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.Organizations(actor, ct));
+administration.MapPost("/organizations", (CreateOrganizationRequest request, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.CreateOrganization(actor, request, ct)).RequireAuthorization("SystemAdmin");
+administration.MapPut("/organizations/{orgId:guid}", (Guid orgId, UpdateOrganizationRequest request, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.UpdateOrganization(actor, orgId, request, ct)).RequireAuthorization("SystemAdmin");
+administration.MapGet("/organizations/{orgId:guid}/users", (Guid orgId, string? search, string? status, int? page, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.Directory(actor, orgId, search, status, page ?? 1, ct));
+administration.MapGet("/organizations/{orgId:guid}/audit", (Guid orgId, int? page, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.Activity(actor, orgId, page ?? 1, ct));
+administration.MapPost("/organizations/{orgId:guid}/users", (Guid orgId, CreateUserRequest request, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.CreateUser(actor, orgId, request, ct));
+administration.MapPut("/organizations/{orgId:guid}/users/{id}", (Guid orgId, string id, UpdateUserRequest request, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.UpdateUser(actor, orgId, id, request, ct));
+foreach (var action in new[] { "invitation", "recovery", "revoke", "unlock" })
+{
+    var operation = action;
+    administration.MapPost("/organizations/{orgId:guid}/users/{id}/" + operation,
+        (Guid orgId, string id, AccessVersionRequest request, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.AccountAction(actor, orgId, id, operation, request.ExpectedVersion, ct));
+}
 api.MapGet("/analytics/dashboard", (HttpRequest req, ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) =>
     analytics.Dashboard(Org(principal), AnalyticsFilter.Parse(req.Query), ct));
 api.MapGet("/analytics/mlr", (HttpRequest req, ClaimsPrincipal principal, MlrService service, CancellationToken ct) =>
@@ -245,15 +279,29 @@ api.MapGet("/reports/financial.csv", async (HttpRequest request, ClaimsPrincipal
     return Results.File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv; charset=utf-8", "hhh-financial-report.csv");
 });
 
-if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup") || args.Contains("--migrate"))
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup") || args.Contains("--migrate") || args.Contains("--bootstrap-admin"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<HhhDbContext>();
     await db.Database.MigrateAsync();
+    var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    foreach (var role in Roles.All)
+    {
+        if (await roles.RoleExistsAsync(role)) continue;
+        var result = await roles.CreateAsync(new IdentityRole(role));
+        if (!result.Succeeded) throw new InvalidOperationException("Could not initialize application roles.");
+    }
     if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Demo:Enabled"))
         await SyntheticSeed.RunAsync(db, scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>(), scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
+    if (args.Contains("--bootstrap-admin"))
+    {
+        var invitation = await scope.ServiceProvider.GetRequiredService<AdministrationService>().Bootstrap(
+            app.Configuration["Bootstrap:Email"] ?? "", app.Configuration["Bootstrap:Name"] ?? "", app.Configuration["Bootstrap:Organization"] ?? "", CancellationToken.None);
+        Console.WriteLine("System administrator created. Privately open this path on your HHH frontend to set the password (expires in 48 hours):");
+        Console.WriteLine(invitation.SetupPath);
+    }
 }
-if (args.Contains("--migrate")) return;
+if (args.Contains("--migrate") || args.Contains("--bootstrap-admin")) return;
 await app.RunAsync();
 
 static Guid Org(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue("organization") ?? throw new UnauthorizedAccessException());

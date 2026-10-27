@@ -13,6 +13,11 @@ const authenticated: CanActivateFn = () =>
   inject(ApiService).user() ? true : inject(Router).createUrlTree(["/login"]);
 const routes: Routes = [
   {
+    path: "activate",
+    loadComponent: () =>
+      import("./app/activate.component").then((m) => m.ActivateComponent),
+  },
+  {
     path: "",
     loadComponent: () =>
       import("./app/landing.component").then((m) => m.LandingComponent),

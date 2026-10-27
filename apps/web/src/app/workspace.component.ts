@@ -14,6 +14,7 @@ import { ChartComponent } from "./chart.component";
 import { IconComponent } from "./icon.component";
 import { ProfitLossComponent } from "./profit-loss.component";
 import { MlrComponent } from "./mlr.component";
+import { AdminComponent } from "./admin.component";
 import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
@@ -28,6 +29,7 @@ import { Batch, Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     ChartComponent,
     ProfitLossComponent,
     MlrComponent,
+    AdminComponent,
   ],
   templateUrl: "./workspace.component.html",
 })
@@ -48,7 +50,6 @@ export class WorkspaceComponent implements OnInit {
   dark = signal(localStorage.getItem("hhh-theme") === "dark");
   search = signal("");
   batches = signal<Batch[]>([]);
-  audit = signal<{ id: number; action: string; occurredAt: string }[]>([]);
   filters: Filters = {
     month: "",
     year: "",
@@ -110,14 +111,6 @@ export class WorkspaceComponent implements OnInit {
             "Organization Administrator",
             "System Administrator",
           ].includes(r),
-        ) ?? false,
-  );
-  canAudit = computed(
-    () =>
-      this.api
-        .user()
-        ?.roles.some((r) =>
-          ["Organization Administrator", "System Administrator"].includes(r),
         ) ?? false,
   );
   groupRows = computed(() => {
@@ -244,8 +237,6 @@ export class WorkspaceComponent implements OnInit {
       this.mobileMenu.set(false);
       this.notice.set("");
       if (this.metadata()) void this.load();
-      if (section === "administration" && this.canAudit())
-        void this.loadAudit();
     });
   }
   async ngOnInit() {
@@ -263,6 +254,11 @@ export class WorkspaceComponent implements OnInit {
   }
   async load() {
     const request = ++this.requestId;
+    if (this.section() === "administration") {
+      this.loading.set(false);
+      this.error.set("");
+      return;
+    }
     if (this.section() === "mlr") {
       this.mlrFilters.set({ ...this.filters });
       this.loading.set(false);
@@ -328,13 +324,6 @@ export class WorkspaceComponent implements OnInit {
       this.target = result.mlrTarget;
       this.notice.set("Organization MLR target saved.");
       await this.load();
-    } catch (e) {
-      this.notice.set(errorMessage(e));
-    }
-  }
-  async loadAudit() {
-    try {
-      this.audit.set(await this.api.audit());
     } catch (e) {
       this.notice.set(errorMessage(e));
     }

@@ -9,6 +9,12 @@ public sealed class AppUser : IdentityUser
 {
     public Guid OrganizationId { get; set; }
     public string DisplayName { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    public bool InvitationPending { get; set; }
+    public string? InvitationHash { get; set; }
+    public DateTimeOffset? InvitationExpiresAt { get; set; }
+    public int AccessVersion { get; set; } = 1;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : IdentityDbContext<AppUser>(options)
@@ -35,6 +41,13 @@ public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : Ident
         b.Entity<Organization>().Property(x => x.MlrTarget).HasPrecision(5, 2);
         b.Entity<AppUser>().HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<AppUser>().Property(x => x.DisplayName).HasMaxLength(180);
+        b.Entity<AppUser>().Property(x => x.InvitationHash).HasMaxLength(64);
+        b.Entity<AppUser>().Property(x => x.AccessVersion).HasDefaultValue(1).IsConcurrencyToken();
+        b.Entity<AppUser>().Property(x => x.IsActive).HasDefaultValue(true);
+        b.Entity<AppUser>().Property(x => x.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+        b.Entity<AppUser>().HasIndex(x => new { x.OrganizationId, x.DisplayName });
+        b.Entity<Organization>().Property(x => x.AccessVersion).HasDefaultValue(1).IsConcurrencyToken();
+        b.Entity<Organization>().Property(x => x.IsActive).HasDefaultValue(true);
         b.Entity<Dimension>().HasAlternateKey(x => new { x.OrganizationId, x.Id });
         b.Entity<Dimension>().HasIndex(x => new { x.OrganizationId, x.Kind, x.Name }).IsUnique();
         b.Entity<Dimension>().Property(x => x.Name).HasMaxLength(180);

@@ -20,6 +20,8 @@ export interface Group {
   mlrTarget?: number;
 }
 export interface User {
+  id?: string;
+  organizationId?: string;
   displayName: string;
   email: string;
   organization: string;
