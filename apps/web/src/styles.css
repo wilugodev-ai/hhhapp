@@ -240,6 +240,8 @@ strong {
 }
 /* Application shell */
 .workspace {
+  --sidebar-width: 232px;
+  --topbar-height: 73px;
   display: flex;
   min-height: 100vh;
 }
@@ -404,18 +406,24 @@ strong {
     margin-left 0.2s,
     width 0.2s;
 }
+.workspace-content {
+  padding-top: var(--topbar-height);
+}
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: var(--sidebar-width);
+  right: 0;
   z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: var(--surface);
-  height: 73px;
+  height: var(--topbar-height);
   border-bottom: 1px solid var(--line);
   padding: 0 32px;
   gap: 12px;
+  transition: left 0.2s;
 }
 .breadcrumb {
   display: flex;
@@ -1452,6 +1460,10 @@ th.numeric {
   color: #142a43;
 }
 .landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1459,11 +1471,9 @@ th.numeric {
   padding: 27px 45px;
   margin: auto;
 }
-.workspace .landing-nav {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: #fff;
+.landing #platform,
+.landing #approach {
+  scroll-margin-top: 110px;
 }
 .landing-brand-group {
   display: flex;
@@ -2097,6 +2107,9 @@ th.numeric {
   color: #f3b4bd;
 }
 /* Responsive layout */
+.workspace.sidebar-collapsed {
+  --sidebar-width: 76px;
+}
 .sidebar-collapsed .sidebar {
   width: 76px;
   padding-left: 12px;
@@ -2157,6 +2170,9 @@ th.numeric {
   }
 }
 @media (max-width: 1200px) {
+  .workspace {
+    --sidebar-width: 210px;
+  }
   .sidebar {
     width: 210px;
     padding-left: 12px;
@@ -2236,6 +2252,9 @@ th.numeric {
   }
 }
 @media (max-width: 1000px) {
+  .workspace {
+    --sidebar-width: 190px;
+  }
   .sidebar {
     width: 190px;
   }
@@ -2354,6 +2373,11 @@ th.numeric {
   }
 }
 @media (max-width: 760px) {
+  .workspace,
+  .workspace.sidebar-collapsed {
+    --sidebar-width: 0px;
+    --topbar-height: 62px;
+  }
   .sidebar {
     transform: translateX(-100%);
     visibility: hidden;
@@ -2391,7 +2415,6 @@ th.numeric {
     display: flex;
   }
   .topbar {
-    height: 62px;
     padding: 0 17px;
   }
   .breadcrumb {
