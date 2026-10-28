@@ -49,7 +49,7 @@ dotnet build src/Hhh.Operator/Hhh.Operator.csproj --configuration Release
 ```powershell
 .\deploy\cloud-run\deploy.ps1 -BuildOnly
 $build=Get-Content .artifacts/cloud/build-result.json -Raw | ConvertFrom-Json
-& $env:HHH_GCLOUD builds describe $build.buildId --project=$build.projectId --region=$build.region --format='value(status)'
+& $env:HHH_GCLOUD builds describe $build.buildId "--project=$($build.projectId)" "--region=$($build.region)" --format='value(status)'
 # Proceed only after the build reports SUCCESS:
 .\deploy\cloud-run\deploy.ps1 -ExistingImage $build.image
 ```
