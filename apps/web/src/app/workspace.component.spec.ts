@@ -45,10 +45,7 @@ async function render() {
   await harness.navigateByUrl("/app/administration", WorkspaceComponent);
   await harness.fixture.whenStable();
   const root = harness.routeNativeElement!;
-  const button = root.querySelector<HTMLButtonElement>(
-    '[aria-label="Sign out"]',
-  )!;
-  return { api, harness, root, button, router: TestBed.inject(Router) };
+  return { api, harness, root, router: TestBed.inject(Router) };
 }
 
 afterEach(() => TestBed.resetTestingModule());
@@ -107,7 +104,10 @@ describe("Workspace account controls", () => {
     },
   );
   it("closes the menu when keyboard focus moves past its actions", async () => {
-    const { root, harness, button } = await render();
+    const { root, harness } = await render();
+    const outside = root.querySelector<HTMLButtonElement>(
+      '[aria-label="View MLR alerts"]',
+    )!;
     const profile = root.querySelector<HTMLButtonElement>(
       '[aria-label="Your account"]',
     )!;
@@ -115,10 +115,10 @@ describe("Workspace account controls", () => {
     profile.click();
     await harness.fixture.whenStable();
     root.querySelector<HTMLAnchorElement>("#user-account-menu a")!.focus();
-    button.focus();
+    outside.focus();
     await harness.fixture.whenStable();
     expect(root.querySelector("#user-account-menu")).toBeNull();
-    expect(document.activeElement).toBe(button);
+    expect(document.activeElement).toBe(outside);
   });
   it("signs out from the account menu", async () => {
     const { api, root, harness, router } = await render();
@@ -147,7 +147,7 @@ describe("Workspace account controls", () => {
     expect(root.textContent).toContain("Appearance");
   });
   it("shows progress, prevents duplicate clicks, and navigates to sign in", async () => {
-    const { api, harness, root, button, router } = await render();
+    const { api, harness, root, router } = await render();
     let finish!: () => void;
     api.logout.mockImplementationOnce(
       () =>
@@ -156,12 +156,22 @@ describe("Workspace account controls", () => {
         }),
     );
     expect(root.querySelector(".export-button")).toBeNull();
-    button.click();
+    const profile = root.querySelector<HTMLButtonElement>(
+      '[aria-label="Your account"]',
+    )!;
+    profile.click();
+    await harness.fixture.whenStable();
+    root.querySelector<HTMLButtonElement>("#user-account-menu button")!.click();
     harness.detectChanges();
-    expect(button.disabled).toBe(true);
     expect(root.querySelector('[role="status"]')?.textContent).toContain(
       "Signing out",
     );
+    profile.click();
+    harness.detectChanges();
+    const button = root.querySelector<HTMLButtonElement>(
+      "#user-account-menu button",
+    )!;
+    expect(button.disabled).toBe(true);
     button.click();
     expect(api.logout).toHaveBeenCalledTimes(1);
     finish();
@@ -169,7 +179,7 @@ describe("Workspace account controls", () => {
     expect(harness.routeNativeElement?.textContent).toContain("Signed out");
   });
   it("shows a failed sign out and allows another attempt", async () => {
-    const { api, harness, root, button, router } = await render();
+    const { api, harness, root, router } = await render();
     api.logout.mockRejectedValueOnce(new HttpErrorResponse({ status: 503 }));
     root
       .querySelector<HTMLButtonElement>('[aria-label="Your account"]')!
@@ -184,6 +194,13 @@ describe("Workspace account controls", () => {
     });
     expect(router.url).toBe("/app/administration");
     expect(root.querySelector("#user-account-menu")).toBeNull();
+    root
+      .querySelector<HTMLButtonElement>('[aria-label="Your account"]')!
+      .click();
+    await harness.fixture.whenStable();
+    const button = root.querySelector<HTMLButtonElement>(
+      "#user-account-menu button",
+    )!;
     expect(button.disabled).toBe(false);
     button.click();
     await vi.waitFor(() => expect(router.url).toBe("/login"));

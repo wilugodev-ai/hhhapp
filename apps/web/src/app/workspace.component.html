@@ -120,19 +120,6 @@
             </section>
           }
         </div>
-        <button
-          class="icon-button"
-          (click)="logout()"
-          aria-label="Sign out"
-          title="Sign out"
-          [disabled]="signingOut()"
-        >
-          @if (signingOut()) {
-            <span class="loader" aria-hidden="true"></span>
-          } @else {
-            <hhh-icon name="logout" />
-          }
-        </button>
         @if (signingOut()) {
           <span class="sr-only" role="status">Signing out...</span>
         }
