@@ -17,8 +17,10 @@ public sealed class AppUser : IdentityUser
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
-public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : IdentityDbContext<AppUser>(options)
+public class HhhDbContext : IdentityDbContext<AppUser>
 {
+    public HhhDbContext(DbContextOptions<HhhDbContext> options) : base(options) { }
+    protected HhhDbContext(DbContextOptions options) : base(options) { }
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<InstallationState> InstallationStates => Set<InstallationState>();
     public DbSet<Dimension> Dimensions => Set<Dimension>();
@@ -40,7 +42,7 @@ public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : Ident
         base.OnModelCreating(b);
         b.Entity<InstallationState>().HasData(new InstallationState { Id = 1 });
         b.Entity<InstallationState>().Property(s => s.Id).ValueGeneratedNever();
-        b.Entity<InstallationState>().ToTable(t => t.HasCheckConstraint("CK_InstallationState_Singleton", "[Id] = 1"));
+        b.Entity<InstallationState>().ToTable(t => t.HasCheckConstraint("CK_InstallationState_Singleton", Database.IsSqlServer() ? "[Id] = 1" : "\"Id\" = 1"));
         b.Entity<Organization>().Property(x => x.Name).HasMaxLength(180);
         b.Entity<Organization>().Property(x => x.MlrTarget).HasPrecision(5, 2);
         b.Entity<AppUser>().HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
@@ -48,7 +50,7 @@ public sealed class HhhDbContext(DbContextOptions<HhhDbContext> options) : Ident
         b.Entity<AppUser>().Property(x => x.InvitationHash).HasMaxLength(64);
         b.Entity<AppUser>().Property(x => x.AccessVersion).HasDefaultValue(1).IsConcurrencyToken();
         b.Entity<AppUser>().Property(x => x.IsActive).HasDefaultValue(true);
-        b.Entity<AppUser>().Property(x => x.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+        b.Entity<AppUser>().Property(x => x.CreatedAt).HasDefaultValueSql(Database.IsSqlServer() ? "SYSUTCDATETIME()" : "CURRENT_TIMESTAMP");
         b.Entity<AppUser>().HasIndex(x => new { x.OrganizationId, x.DisplayName });
         b.Entity<Organization>().Property(x => x.AccessVersion).HasDefaultValue(1).IsConcurrencyToken();
         b.Entity<Organization>().Property(x => x.IsActive).HasDefaultValue(true);

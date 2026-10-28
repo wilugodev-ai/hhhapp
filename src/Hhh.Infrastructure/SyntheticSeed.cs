@@ -10,6 +10,8 @@ public static class SyntheticSeed
 
     public static async Task RunAsync(HhhDbContext db, UserManager<AppUser> users, RoleManager<IdentityRole> roles)
     {
+        if (string.Equals(db.Database.GetDbConnection().Database, "HhhLocal", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Reference identities cannot be seeded into the normal local prototype database.");
         foreach (var role in Roles.All)
             if (!await roles.RoleExistsAsync(role)) await Ensure(roles.CreateAsync(new IdentityRole(role)));
 

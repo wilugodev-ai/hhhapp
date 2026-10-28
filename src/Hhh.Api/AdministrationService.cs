@@ -84,7 +84,10 @@ public sealed class AdministrationService(HhhDbContext db, UserManager<AppUser> 
         var transaction = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            await db.Database.ExecuteSqlRawAsync("DECLARE @result int; EXEC @result = sys.sp_getapplock @Resource=N'HHH:AccessAdministration', @LockMode=N'Exclusive', @LockOwner=N'Transaction', @LockTimeout=10000; IF @result < 0 THROW 51000, 'Access administration is busy. Try again.', 1;", ct);
+            if (db.Database.IsNpgsql())
+                await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '10s'; SELECT pg_advisory_xact_lock(520850010427);", ct);
+            else
+                await db.Database.ExecuteSqlRawAsync("DECLARE @result int; EXEC @result = sys.sp_getapplock @Resource=N'HHH:AccessAdministration', @LockMode=N'Exclusive', @LockOwner=N'Transaction', @LockTimeout=10000; IF @result < 0 THROW 51000, 'Access administration is busy. Try again.', 1;", ct);
             return transaction;
         }
         catch { await transaction.DisposeAsync(); throw; }

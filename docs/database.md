@@ -1,6 +1,6 @@
 # Database foundation
 
-The EF Core model and committed migrations in `src/Hhh.Infrastructure/Migrations` define the SQL Server schema. Phase 1 uses conformed typed dimensions in one `Dimensions` table; the wider warehouse dimensional expansion remains part of the roadmap.
+The EF Core model and committed migrations in `src/Hhh.Infrastructure/Migrations` define the SQL Server schema. The derived `PostgresHhhDbContext` and separate `Migrations/Postgres` history support the hosted Neon database, including persistent encrypted Data Protection keys. SQL Server migrations and the normal local database remain independent. Phase 1 uses conformed typed dimensions in one `Dimensions` table; the wider warehouse dimensional expansion remains part of the roadmap.
 
 ```mermaid
 erDiagram
@@ -27,10 +27,12 @@ Development startup applies migrations automatically to its configured HHH datab
 
 ```powershell
 dotnet tool restore
-dotnet ef migrations script --idempotent --project src/Hhh.Infrastructure --startup-project src/Hhh.Api --output hhh-migrations.sql
+dotnet ef migrations script --idempotent --context HhhDbContext --project src/Hhh.Infrastructure --startup-project src/Hhh.Api --output hhh-migrations.sql
 ```
 
 Review and apply the generated script using a migration identity. Keep the runtime identity separate and least privileged. Set `ConnectionStrings__Hhh` through the environment; do not put production connection strings into tracked files. The `--migrate` API argument is also supported for an explicit one-shot migration process.
+
+For PostgreSQL, use `--context PostgresHhhDbContext` and an operator-provided `HHH_POSTGRES_CONNECTION_STRING`, or the guarded operator described in the [cloud deployment guide](../deploy/cloud-run/README.md). Set `Database__Provider=PostgreSql` for the hosted API; its migrations are disabled at normal startup. Access administration uses a transaction-owned PostgreSQL advisory lock with a ten-second lock timeout, preserving the SQL Server application-lock behavior.
 
 The Phase 1 seed provides one report version per effective month. Restatement ingestion and as-of selection across multiple versions must be implemented before loading financial restatements; aggregating multiple report versions together would double count results.
 

@@ -11,12 +11,29 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.DataProtection;
+using Npgsql;
+using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 32 * 1024);
 builder.Services.AddProblemDetails();
-builder.Services.AddDbContext<HhhDbContext>(o => o.UseSqlServer(builder.Configuration.GetConnectionString("Hhh")
-    ?? throw new InvalidOperationException("Configure ConnectionStrings__Hhh.")));
+string Connection() => builder.Configuration.GetConnectionString("Hhh") ?? throw new InvalidOperationException("Configure ConnectionStrings__Hhh.");
+var postgres = string.Equals(builder.Configuration["Database:Provider"], "PostgreSql", StringComparison.OrdinalIgnoreCase);
+if (postgres)
+{
+    builder.Services.AddDbContext<PostgresHhhDbContext>(o => o.UseNpgsql(Connection()));
+    builder.Services.AddScoped<HhhDbContext>(services => services.GetRequiredService<PostgresHhhDbContext>());
+    if (!builder.Environment.IsDevelopment())
+    {
+        var certificatePath = builder.Configuration["DataProtection:CertificatePath"]
+            ?? throw new InvalidOperationException("Configure DataProtection__CertificatePath for persistent, encrypted cloud sessions.");
+        var certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath, null, X509KeyStorageFlags.EphemeralKeySet);
+        builder.Services.AddDataProtection().SetApplicationName("HHH")
+            .PersistKeysToDbContext<PostgresHhhDbContext>().ProtectKeysWithCertificate(certificate);
+    }
+}
+else builder.Services.AddDbContext<HhhDbContext>(o => o.UseSqlServer(Connection()));
 builder.Services.AddIdentityCore<AppUser>(o =>
 {
     o.Password.RequiredLength = 12;
@@ -78,6 +95,7 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
     if (context.Request.Path.StartsWithSegments("/api")) context.Response.Headers.CacheControl = "no-cache, no-store";
     try { await next(); }
     catch (AdministrationException ex) when (!context.Response.HasStarted)
@@ -90,18 +108,26 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = 409;
         await context.Response.WriteAsJsonAsync(new { title = "Access administration is busy. Try again.", status = 409 });
     }
+    catch (PostgresException ex) when (!context.Response.HasStarted && ex.SqlState == PostgresErrorCodes.LockNotAvailable)
+    {
+        context.Response.StatusCode = 409;
+        await context.Response.WriteAsJsonAsync(new { title = "Access administration is busy. Try again.", status = 409 });
+    }
     catch (ArgumentException ex) when (!context.Response.HasStarted)
     {
         context.Response.StatusCode = 400;
         await context.Response.WriteAsJsonAsync(new { title = ex.Message, status = 400 });
     }
     catch (Exception ex) when (!context.Response.HasStarted && (ex is MlrConfigurationConflict or DbUpdateConcurrencyException
-        || ex is DbUpdateException { InnerException: SqlException sql } && sql.Number is 2601 or 2627))
+        || ex is DbUpdateException { InnerException: SqlException sql } && sql.Number is 2601 or 2627
+        || ex is DbUpdateException { InnerException: PostgresException pg } && pg.SqlState == PostgresErrorCodes.UniqueViolation))
     {
         context.Response.StatusCode = 409;
         await context.Response.WriteAsJsonAsync(new { title = "The record changed or conflicts with an existing record. Reload before saving again.", status = 409 });
     }
 });
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
@@ -326,6 +352,8 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup") || args.Contai
     }
 }
 if (args.Contains("--migrate") || args.Contains("--bootstrap-admin")) return;
+app.Map("/api/{**path}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
 await app.RunAsync();
 
 static Guid Org(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue("organization") ?? throw new UnauthorizedAccessException());

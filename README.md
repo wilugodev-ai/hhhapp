@@ -12,15 +12,17 @@ The product will bring together executive dashboards, profit and loss analytics,
 | --- | --- |
 | Frontend | Angular, TypeScript, Tailwind CSS, Apache ECharts |
 | API | ASP.NET Core Web API, C#, Entity Framework Core where appropriate |
-| Database | Microsoft SQL Server |
+| Database | SQL Server locally; Neon PostgreSQL for the hosted application |
 | Data engineering | SQL Server stored procedures, ETL pipelines, historical snapshots |
 | Forecasting | Separate Python services with statistical models and backtesting |
 | Financial assistant | LLM integration with authorized data and validated analytical queries |
-| Deployment | Docker, Azure-compatible infrastructure, environment-based configuration |
+| Deployment | Google Cloud Run, Cloud Build, Artifact Registry, Secret Manager, Docker |
 
 ## Working application
 
-The application now includes a public landing page, sign-in, an interactive executive dashboard, P&L, operational MLR, payer and medical center comparisons, membership trends, filtered CSV reports, source lineage, organization settings, and administrator audit access. Financial metrics come from persistent SQL Server data through the authenticated ASP.NET API.
+The application now includes a public landing page, sign-in, an interactive executive dashboard, P&L, operational MLR, payer and medical center comparisons, membership trends, filtered CSV reports, source lineage, organization settings, and administrator audit access. Financial metrics come from the persistent application database through the authenticated ASP.NET API.
+
+The hosted application is available at **https://hhh-j2uk5d5lkq-uc.a.run.app** on Google Cloud Run with a dedicated Neon database. Existing administrator credentials work there. The original administrator, organization configuration, and 10,046 records were transferred and verified. Local data was retained unchanged; reference fixtures introduced during testing were excluded from the hosted export. See the [deployment and operations guide](deploy/cloud-run/README.md).
 
 The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. Settings includes personal appearance controls with preset backgrounds, a custom tint, previews, and reset. An optional starter dataset adds 21 months of fictional financials and independent budgets to the administrator's own organization. Starter financials do not create user accounts or include real member records.
 
@@ -101,7 +103,7 @@ docker compose up --build
 
 Open http://127.0.0.1:4300. This Compose configuration is a localhost-only synthetic development demo, uses SQL Server Developer edition, and persists SQL data and authentication keys in volumes. Docker execution has not been verified on this workstation because Docker is not installed.
 
-For production, use the API and web Dockerfiles with managed SQL Server, HTTPS ingress, environment-provided secrets, persistent Data Protection keys, deployment-controlled migrations, and enterprise user provisioning. Use a least-privileged runtime database identity, separate from the migration identity. Do not deploy the development Compose configuration as a production system.
+The [Cloud Run deployment](deploy/cloud-run/README.md) builds Angular and ASP.NET into one container, uses same-origin HTTPS APIs, and connects to Neon with a restricted runtime role. Session keys persist in PostgreSQL, encrypted with a certificate from Secret Manager. Migrations and data transfers run separately with an operator identity. The development Compose configuration remains a local reference environment.
 
 ## Development sequence
 
@@ -124,4 +126,5 @@ Development and demonstrations will use synthetic, non-identifiable data. Financ
 - [Users, roles, organizations, setup links, and administration](docs/administration.md)
 - [Executive financial health KPIs and data quality](docs/financial-health.md)
 - [First administrator handoff](docs/first-admin-handoff.md)
+- [Google Cloud Run and Neon deployment](deploy/cloud-run/README.md)
 - [Python forecasting service plan](services/forecasting/README.md)
