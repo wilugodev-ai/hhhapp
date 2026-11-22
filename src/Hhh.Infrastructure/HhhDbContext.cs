@@ -36,10 +36,29 @@ public class HhhDbContext : IdentityDbContext<AppUser>
     public DbSet<MlrDefinition> MlrDefinitions => Set<MlrDefinition>();
     public DbSet<MlrComponent> MlrComponents => Set<MlrComponent>();
     public DbSet<MlrTargetRule> MlrTargets => Set<MlrTargetRule>();
+    public DbSet<SyntheaDataset> SyntheaDatasets => Set<SyntheaDataset>();
+    public DbSet<SyntheaRecord> SyntheaRecords => Set<SyntheaRecord>();
+    public DbSet<SyntheaAdmission> SyntheaAdmissions => Set<SyntheaAdmission>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        var dataset = b.Entity<SyntheaDataset>();
+        dataset.HasKey(x => x.OrganizationId);
+        dataset.HasOne<Organization>().WithOne().HasForeignKey<SyntheaDataset>(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+        dataset.Property(x => x.ArchiveSha256).HasMaxLength(64);
+
+        var record = b.Entity<SyntheaRecord>();
+        record.HasKey(x => new { x.OrganizationId, x.SourceTable, x.RowNumber });
+        record.Property(x => x.SourceTable).HasMaxLength(64);
+        record.HasOne<SyntheaDataset>().WithMany().HasForeignKey(x => x.OrganizationId);
+        record.HasIndex(x => new { x.OrganizationId, x.EncounterId, x.SourceTable });
+
+        var admission = b.Entity<SyntheaAdmission>();
+        admission.HasKey(x => new { x.OrganizationId, x.EncounterId });
+        admission.HasOne<SyntheaDataset>().WithMany().HasForeignKey(x => x.OrganizationId);
+        admission.HasIndex(x => new { x.OrganizationId, x.AdmittedAt, x.EncounterId });
+
         b.Entity<InstallationState>().HasData(new InstallationState { Id = 1 });
         b.Entity<InstallationState>().Property(s => s.Id).ValueGeneratedNever();
         b.Entity<InstallationState>().ToTable(t => t.HasCheckConstraint("CK_InstallationState_Singleton", Database.IsSqlServer() ? "[Id] = 1" : "\"Id\" = 1"));

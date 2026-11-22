@@ -517,6 +517,102 @@ namespace Hhh.Infrastructure.Migrations.Postgres
                     b.ToTable("SourceBatches");
                 });
 
+            modelBuilder.Entity("Hhh.Domain.SyntheaAdmission", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EncounterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AdmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("DischargedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncounterCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FacilityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FacilityName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PatientName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReasonCode")
+                        .HasColumnType("text");
+
+                    b.HasKey("OrganizationId", "EncounterId");
+
+                    b.HasIndex("OrganizationId", "AdmittedAt", "EncounterId");
+
+                    b.ToTable("SyntheaAdmissions");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaDataset", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArchiveSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("ImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("OrganizationId");
+
+                    b.ToTable("SyntheaDatasets");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaRecord", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceTable")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("EncounterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("OrganizationId", "SourceTable", "RowNumber");
+
+                    b.HasIndex("OrganizationId", "EncounterId", "SourceTable");
+
+                    b.ToTable("SyntheaRecords");
+                });
+
             modelBuilder.Entity("Hhh.Infrastructure.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -974,6 +1070,33 @@ namespace Hhh.Infrastructure.Migrations.Postgres
                         .WithMany()
                         .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaAdmission", b =>
+                {
+                    b.HasOne("Hhh.Domain.SyntheaDataset", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaDataset", b =>
+                {
+                    b.HasOne("Hhh.Domain.Organization", null)
+                        .WithOne()
+                        .HasForeignKey("Hhh.Domain.SyntheaDataset", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaRecord", b =>
+                {
+                    b.HasOne("Hhh.Domain.SyntheaDataset", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

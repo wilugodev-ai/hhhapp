@@ -517,6 +517,102 @@ namespace Hhh.Infrastructure.Migrations
                     b.ToTable("SourceBatches");
                 });
 
+            modelBuilder.Entity("Hhh.Domain.SyntheaAdmission", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EncounterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AdmittedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("DischargedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("EncounterCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FacilityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FacilityName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PatientName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("OrganizationId", "EncounterId");
+
+                    b.HasIndex("OrganizationId", "AdmittedAt", "EncounterId");
+
+                    b.ToTable("SyntheaAdmissions");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaDataset", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ArchiveSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("ImportedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("OrganizationId");
+
+                    b.ToTable("SyntheaDatasets");
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaRecord", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceTable")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("EncounterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("PatientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("OrganizationId", "SourceTable", "RowNumber");
+
+                    b.HasIndex("OrganizationId", "EncounterId", "SourceTable");
+
+                    b.ToTable("SyntheaRecords");
+                });
+
             modelBuilder.Entity("Hhh.Infrastructure.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -957,6 +1053,33 @@ namespace Hhh.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaAdmission", b =>
+                {
+                    b.HasOne("Hhh.Domain.SyntheaDataset", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaDataset", b =>
+                {
+                    b.HasOne("Hhh.Domain.Organization", null)
+                        .WithOne()
+                        .HasForeignKey("Hhh.Domain.SyntheaDataset", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Hhh.Domain.SyntheaRecord", b =>
+                {
+                    b.HasOne("Hhh.Domain.SyntheaDataset", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

@@ -62,6 +62,18 @@ node deploy/cloud-run/operator.mjs migrate
 
 The SQL Server context and migrations remain the local defaults. Specify `--context HhhDbContext` or `--context PostgresHhhDbContext` when generating EF migrations to avoid ambiguity.
 
+### Synthea sample
+
+On November 21, 2026, revision `hhh-00006-z5b` deployed the healthcare file browser and admissions page. The hosted Ablest database contains all 412,443 records in the 18-file sample. The archive SHA-256 and each source row count were verified using the runtime role.
+
+The sample importer applies the clinical migration, then loads the published CSV archive into one existing organization in a single transaction. The inspection command reports the organization, source fingerprint, row counts and inpatient admission count.
+
+```powershell
+node deploy/cloud-run/operator.mjs inspect-synthea <organization-id>
+node deploy/cloud-run/operator.mjs import-synthea <organization-id> data/synthea/sample-csv.zip
+node deploy/cloud-run/operator.mjs inspect-synthea <organization-id>
+```
+
 ## Initial provisioning and transfer
 
 These steps were completed for this deployment. **Do not rerun import against the live database.** The import refuses populated application tables and verifies the full canonical snapshot inside its transaction before committing.

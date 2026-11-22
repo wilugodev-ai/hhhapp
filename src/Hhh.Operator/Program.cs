@@ -17,6 +17,26 @@ using NpgsqlTypes;
 var command = args.FirstOrDefault() ?? "";
 try
 {
+    if (command == "import-synthea")
+    {
+        if (args.Length != 3 || !Guid.TryParse(args[1], out var organizationId))
+            throw new ArgumentException("Usage: import-synthea <organization-id> <Synthea CSV ZIP>");
+        await using var input = File.OpenRead(args[2]);
+        var connection = Environment.GetEnvironmentVariable("ConnectionStrings__Hhh");
+        var postgres = string.Equals(Environment.GetEnvironmentVariable("Database__Provider"), "PostgreSql", StringComparison.OrdinalIgnoreCase);
+        await using HhhDbContext db = postgres
+            ? new PostgresHhhDbContext(new DbContextOptionsBuilder<PostgresHhhDbContext>().UseNpgsql(connection
+                ?? throw new ArgumentException("Configure ConnectionStrings__Hhh for PostgreSQL.")).Options)
+            : new HhhDbContext(new DbContextOptionsBuilder<HhhDbContext>().UseSqlServer(connection
+                ?? @"Server=.\SQLEXPRESS01;Database=HhhLocal;Trusted_Connection=True;TrustServerCertificate=True").Options);
+        await db.Database.MigrateAsync();
+        var inserted = await SyntheaImporter.ImportAsync(db, organizationId, input);
+        var tables = await db.SyntheaRecords.Where(r => r.OrganizationId == organizationId).GroupBy(r => r.SourceTable)
+            .Select(g => new { table = g.Key, rows = g.Count() }).OrderBy(t => t.table).ToArrayAsync();
+        var admissions = await db.SyntheaAdmissions.CountAsync(a => a.OrganizationId == organizationId);
+        Console.WriteLine(JsonSerializer.Serialize(new { inserted, organizationId, admissions, rows = tables.Sum(t => t.rows), tables }));
+        return;
+    }
     if (command == "certificate")
     {
         var path = PrivatePath(args.ElementAtOrDefault(1));
@@ -83,7 +103,7 @@ try
             tables = preservedTables.ToList();
             Console.WriteLine(JsonSerializer.Serialize(new { hostedExportOnly=true, excludedReferenceFixtureRows=removed.Values.Sum(value=>value.Count), originalAccounts=tables.Single(table=>table.Name=="AspNetUsers").Rows.Length }));
         }
-        var snapshot = new Snapshot(1, DateTimeOffset.UtcNow, tables.ToArray());
+        var snapshot = new Snapshot(2, DateTimeOffset.UtcNow, tables.ToArray());
         if (tables.Single(table => table.Name == "AspNetUsers").Rows.Length == 0)
             throw new InvalidOperationException("No existing accounts were found; stopped instead of exporting a different installation.");
         await File.WriteAllTextAsync(PrivatePath(args.ElementAtOrDefault(1)), JsonSerializer.Serialize(snapshot));
@@ -96,6 +116,27 @@ try
     if (new NpgsqlConnectionStringBuilder(targetConnection).Database != "hhh")
         throw new InvalidOperationException("Cloud operations are restricted to the dedicated hhh database.");
     await using var target = new PostgresHhhDbContext(new DbContextOptionsBuilder<PostgresHhhDbContext>().UseNpgsql(targetConnection).Options);
+    if (command == "inspect-synthea")
+    {
+        if (args.Length != 2 || !Guid.TryParse(args[1], out var orgId))
+            throw new ArgumentException("Usage: inspect-synthea <organization-id>");
+        var organization = await target.Organizations.Where(o => o.Id == orgId && o.IsActive)
+            .Select(o => new { o.Id, o.Name }).SingleAsync();
+        var schemaReady = await target.Database.SqlQueryRaw<bool>(
+            """SELECT to_regclass('public."SyntheaDatasets"') IS NOT NULL AS "Value" """).SingleAsync();
+        if (!schemaReady)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(new { organization, schemaReady }));
+            return;
+        }
+        var dataset = await target.SyntheaDatasets.Where(d => d.OrganizationId == orgId)
+            .Select(d => new { d.ArchiveSha256, d.ImportedAt }).SingleOrDefaultAsync();
+        var tables = await target.SyntheaRecords.Where(r => r.OrganizationId == orgId).GroupBy(r => r.SourceTable)
+            .Select(g => new { file = g.Key, rows = g.Count() }).OrderBy(t => t.file).ToArrayAsync();
+        var admissions = await target.SyntheaAdmissions.CountAsync(a => a.OrganizationId == orgId);
+        Console.WriteLine(JsonSerializer.Serialize(new { organization, schemaReady, dataset, admissions, rows = tables.Sum(t => t.rows), tables }));
+        return;
+    }
     if (command is "create-verifier" or "promote-verifier" or "remove-verifier")
     {
         var path = PrivatePath(args.ElementAtOrDefault(1));
@@ -162,11 +203,19 @@ try
         Console.WriteLine("Dedicated HHH PostgreSQL schema is current.");
         return;
     }
-    if (command is not ("import" or "verify")) throw new InvalidOperationException("Use certificate, export, export-hosted, migrate, import, verify, create-verifier, promote-verifier, or remove-verifier.");
+    if (command is not ("import" or "verify")) throw new InvalidOperationException("Use import-synthea, certificate, export, export-hosted, migrate, import, verify, create-verifier, promote-verifier, or remove-verifier.");
     var snapshotData = JsonSerializer.Deserialize<Snapshot>(await File.ReadAllTextAsync(PrivatePath(args.ElementAtOrDefault(1))))
         ?? throw new InvalidOperationException("Invalid snapshot.");
-    if (snapshotData.Format != 1) throw new InvalidOperationException("Unsupported snapshot format.");
+    if (snapshotData.Format is not (1 or 2)) throw new InvalidOperationException("Unsupported snapshot format.");
+    var archivedTables = snapshotData.Tables;
     var models = Entities(target).Where(entity => entity.GetTableName() != "DataProtectionKeys").ToArray();
+    if (snapshotData.Format == 1)
+    {
+        // Clinical tables were introduced in format 2. Older exports represent an empty clinical dataset.
+        var clinicalTables = models.Where(e => e.ClrType == typeof(SyntheaDataset) || e.ClrType == typeof(SyntheaAdmission) || e.ClrType == typeof(SyntheaRecord));
+        var emptyTables = clinicalTables.Select(e => new TableData(e.GetTableName()!, Properties(e).Select(p => Column(e, p)).ToArray(), []));
+        snapshotData = snapshotData with { Tables = [.. snapshotData.Tables, .. emptyTables] };
+    }
     if (!models.Select(entity => entity.GetTableName()).Order().SequenceEqual(snapshotData.Tables.Select(table => table.Name).Order()))
         throw new InvalidOperationException("Snapshot tables do not match this application model.");
     await using var destination = new NpgsqlConnection(targetConnection); await destination.OpenAsync();
@@ -221,7 +270,8 @@ try
     var expected = Fingerprint(snapshotData.Tables); var actual = Fingerprint(copied);
     if (expected != actual) throw new InvalidOperationException("Transfer verification failed; the transaction was not committed.");
     await targetTransaction.CommitAsync();
-    Console.WriteLine(JsonSerializer.Serialize(new { verifiedTables = copied.Count, rows = copied.Sum(table => table.Rows.Length), fingerprint = actual, accounts = copied.Single(table => table.Name == "AspNetUsers").Rows.Length, command }));
+    var archiveFingerprint = snapshotData.Format == 1 ? Fingerprint(archivedTables) : actual;
+    Console.WriteLine(JsonSerializer.Serialize(new { verifiedTables = copied.Count, rows = copied.Sum(table => table.Rows.Length), fingerprint = archiveFingerprint, accounts = copied.Single(table => table.Name == "AspNetUsers").Rows.Length, command }));
 }
 catch (Exception error)
 {

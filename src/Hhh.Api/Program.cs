@@ -229,6 +229,16 @@ api.MapPost("/auth/logout", async (HttpContext ctx, HhhDbContext db) =>
     return Results.Ok(new { success = true });
 });
 api.MapGet("/analytics/filters", (ClaimsPrincipal principal, AnalyticsService analytics, CancellationToken ct) => analytics.Metadata(Org(principal), ct));
+api.MapGet("/admissions", (ClaimsPrincipal principal, HhhDbContext db, int? page, CancellationToken ct) =>
+    Admissions.List(db, Org(principal), page ?? 1, ct));
+api.MapGet("/admissions/{id:guid}/records", (Guid id, ClaimsPrincipal principal, HhhDbContext db, string? table, int? page, CancellationToken ct) =>
+    Admissions.Records(db, Org(principal), id, table, page ?? 1, ct));
+api.MapGet("/admissions/{id:guid}/fhir", (Guid id, ClaimsPrincipal principal, HhhDbContext db, CancellationToken ct) =>
+    Admissions.Fhir(db, Org(principal), id, ct));
+api.MapGet("/data/synthea/files", (ClaimsPrincipal principal, HhhDbContext db, CancellationToken ct) =>
+    SyntheaFiles.Catalog(db, Org(principal), ct));
+api.MapGet("/data/synthea/files/{table}", (string table, ClaimsPrincipal principal, HhhDbContext db, int? page, string? column, string? q, CancellationToken ct) =>
+    SyntheaFiles.Read(db, Org(principal), table, page ?? 1, column, q, ct));
 var administration = api.MapGroup("/admin").RequireAuthorization("Audit");
 administration.MapGet("/organizations", (ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.Organizations(actor, ct));
 administration.MapPost("/organizations", (CreateOrganizationRequest request, ClaimsPrincipal actor, AdministrationService service, CancellationToken ct) => service.CreateOrganization(actor, request, ct)).RequireAuthorization("SystemAdmin");

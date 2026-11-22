@@ -1,0 +1,163 @@
+<section class="panel" [attr.aria-busy]="busy()">
+  @if (files().length) {
+    <div class="file-controls">
+      <label
+        >Source file
+        <select #fileSelect (change)="selectFile(fileSelect.value)">
+          @for (file of files(); track file.name) {
+            <option [value]="file.name" [selected]="selected() === file.name">
+              {{ label(file.name) }} · {{ file.count | number }}
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+  }
+  @if (data(); as file) {
+    <form class="file-search" (ngSubmit)="find()">
+      <label
+        >Search column
+        <select name="column" [(ngModel)]="column">
+          @for (key of file.columns; track key) {
+            <option [value]="key">{{ key }}</option>
+          }
+        </select>
+      </label>
+      <label
+        >Contains
+        <input name="query" [(ngModel)]="search" maxlength="200" type="search"
+      /></label>
+      <button class="btn btn-outline" type="submit">Search</button>
+      @if (routeSearch()) {
+        <button
+          class="btn btn-outline"
+          type="button"
+          (click)="selectFile(file.table)"
+        >
+          Clear search
+        </button>
+      }
+      <button
+        class="btn btn-outline"
+        type="button"
+        (click)="allFields.set(!allFields())"
+      >
+        {{ allFields() ? "Show readable view" : "Show original fields" }}
+      </button>
+    </form>
+    <p class="file-summary">
+      {{ file.table }}.csv · {{ file.total | number }}
+      {{ routeSearch() ? "matching records" : "records" }}
+    </p>
+    @if (file.rows.length) {
+      <div
+        class="table-scroll file-table"
+        tabindex="0"
+        [attr.aria-label]="label(file.table)"
+      >
+        <table>
+          <thead>
+            <tr>
+              @for (col of shown(); track col.key) {
+                <th scope="col">
+                  {{ allFields() ? col.key : caption(col.key) }}
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of file.rows; track $index) {
+              <tr>
+                @for (col of shown(); track col.key) {
+                  <td>
+                    @if (
+                      file.table === "claims" &&
+                      col.key.toUpperCase() === "ID" &&
+                      row[col.index]
+                    ) {
+                      <a
+                        class="text-link"
+                        routerLink="/app/healthcare-files"
+                        [queryParams]="{
+                          file: 'claims_transactions',
+                          column: 'CLAIMID',
+                          q: row[col.index],
+                        }"
+                        title="View this claim's transactions"
+                        >{{ row[col.index] }}</a
+                      >
+                    } @else {
+                      <span
+                        [attr.title]="
+                          file.names[row[col.index]] ? row[col.index] : null
+                        "
+                        >{{ display(file, col.key, row[col.index]) }}</span
+                      >
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (pages() > 1) {
+        <form class="file-paging" (ngSubmit)="go(jump)">
+          <button
+            class="btn btn-outline"
+            type="button"
+            [disabled]="file.page <= 1"
+            (click)="go(file.page - 1)"
+          >
+            Previous
+          </button>
+          <label
+            >Page
+            <input
+              name="page"
+              type="number"
+              min="1"
+              [max]="pages()"
+              [(ngModel)]="jump"
+              required
+          /></label>
+          <span>of {{ pages() | number }}</span>
+          <button class="btn btn-outline" type="submit">Go</button>
+          <button
+            class="btn btn-outline"
+            type="button"
+            [disabled]="file.page >= pages()"
+            (click)="go(file.page + 1)"
+          >
+            Next
+          </button>
+        </form>
+      }
+    } @else {
+      <p class="file-state">No records match this search.</p>
+    }
+  } @else if (busy()) {
+    <p class="file-state" role="status">Loading healthcare files…</p>
+  } @else if (!error()) {
+    <p class="file-state">
+      No Synthea files have been imported for this organization.
+    </p>
+  }
+  @if (error()) {
+    <div class="error-banner" role="alert">
+      {{ error() }}
+      <button class="btn btn-outline" type="button" (click)="retry()">
+        Retry
+      </button>
+      @if (files().length) {
+        <button
+          class="btn btn-outline"
+          type="button"
+          (click)="selectFile(files()[0].name)"
+        >
+          Reset view
+        </button>
+      }
+    </div>
+  }
+</section>

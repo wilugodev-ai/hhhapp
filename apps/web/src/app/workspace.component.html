@@ -7,7 +7,9 @@
   <hhh-main-navigation
     [activeSection]="section()"
     [sampleStatus]="
-      data()?.dataStatus === 'mixed'
+      clinicalSection()
+        ? null
+        : data()?.dataStatus === 'mixed'
         ? 'mixed'
         : data()?.isSynthetic
           ? 'sample'
@@ -29,7 +31,7 @@
         ><strong>{{ activeNav().label }}</strong>
       </div>
       <div class="topbar-actions">
-        @if (data()?.isSynthetic || data()?.dataStatus === "mixed") {
+        @if (!clinicalSection() && (data()?.isSynthetic || data()?.dataStatus === "mixed")) {
           <span class="synthetic-pill"
             ><span class="status-dot"></span
             >{{
@@ -128,7 +130,7 @@
     <main class="content">
       <div class="page-heading">
         <div>
-          <span class="eyebrow">YOUR FINANCIAL HORIZON</span>
+          @if (!clinicalSection()) { <span class="eyebrow">YOUR FINANCIAL HORIZON</span> }
           <h1>
             {{
               section() === "overview"
@@ -140,6 +142,10 @@
             {{
               section() === "overview"
                 ? "A clearer view of performance. A stronger foundation for what’s next."
+                : section() === "admissions"
+                ? "Hospital stays from the Synthea synthetic patient sample."
+                : section() === "healthcare-files"
+                ? "Claims, prescriptions, coverage periods and clinical records from Synthea."
                 : "Turn healthcare financial data into informed decisions."
             }}
           </p>
@@ -150,6 +156,7 @@
           section() !== "mlr" &&
           section() !== "administration" &&
           section() !== "settings" &&
+          !clinicalSection() &&
           section() !== "data"
         ) {
           <button
@@ -178,6 +185,7 @@
         !isPlanned() &&
         section() !== "settings" &&
         section() !== "administration" &&
+        !clinicalSection() &&
         section() !== "data"
       ) {
         <section class="filter-bar" aria-label="Financial filters">
@@ -295,7 +303,7 @@
       @if (error()) {
         <div class="error-banner" role="alert">
           <hhh-icon name="info" />{{ error()
-          }}<button class="btn btn-outline" (click)="load()">Try again</button
+          }}<button class="btn btn-outline" (click)="enterSection()">Try again</button
           ><a routerLink="/login">Sign in</a>
         </div>
       }
@@ -325,6 +333,12 @@
       @if (section() === "data") {
         <hhh-data-quality />
       }
+      @if (section() === "admissions") {
+        <hhh-admissions />
+      }
+      @if (section() === "healthcare-files") {
+        <hhh-healthcare-files />
+      }
       @if (section() === "settings") {
         <hhh-appearance-settings />
       }
@@ -333,6 +347,7 @@
           section() !== "administration" &&
           section() !== "profit-loss" &&
           section() !== "mlr" &&
+          !clinicalSection() &&
           section() !== "data" &&
           data();
         as d
@@ -784,6 +799,7 @@
                   <h2>Membership growth</h2>
                   <p>Non-overlapping cohorts · Monthly membership</p>
                 </div>
+                <a class="text-link" routerLink="/app/healthcare-files" [queryParams]="{file: 'payer_transitions'}">View Synthea coverage periods</a>
               </div>
               <hhh-chart
                 [option]="membershipChart()"

@@ -1,0 +1,177 @@
+<section class="panel" [attr.aria-busy]="busy()">
+  @if (selected(); as admission) {
+    <div class="panel-heading">
+      <div>
+        <h2>{{ admission.patientName }}</h2>
+        <p>
+          {{ admission.facilityName }} ·
+          {{ admission.admittedAt | date: "MMM d, y, HH:mm" : "UTC" }} UTC
+        </p>
+      </div>
+      <button class="btn btn-outline" type="button" (click)="back()">
+        Back to admissions
+      </button>
+    </div>
+    <div class="record-toolbar">
+      @if (records(); as data) {
+        <label
+          >Source file
+          <select #source (change)="load(1, source.value)" [disabled]="busy()">
+            @for (item of data.tables; track item.name) {
+              <option [value]="item.name" [selected]="item.name === data.table">
+                {{ item.name }}.csv ({{ item.count | number }})
+              </option>
+            }
+          </select>
+        </label>
+      }
+      <a
+        class="text-link"
+        [href]="'/api/admissions/' + admission.encounterId + '/fhir'"
+        target="_blank"
+        rel="noopener"
+        >Open FHIR JSON</a
+      >
+    </div>
+    @if (records(); as data) {
+      <div
+        class="table-scroll source-records"
+        tabindex="0"
+        [attr.aria-label]="data.table + ' records'"
+      >
+        <table>
+          <thead>
+            <tr>
+              @for (column of data.columns; track column) {
+                <th scope="col">{{ column }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of data.rows; track $index) {
+              <tr>
+                @for (cell of row; track $index) {
+                  <td>{{ cell || "—" }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (data.total > data.pageSize) {
+        <div class="admin-pagination">
+          <button
+            class="btn btn-outline"
+            type="button"
+            [disabled]="busy() || data.page <= 1"
+            (click)="load(data.page - 1, data.table)"
+          >
+            Previous
+          </button>
+          <span
+            >Page {{ data.page }} of
+            {{ pageCount(data.total, data.pageSize) }}</span
+          >
+          <button
+            class="btn btn-outline"
+            type="button"
+            [disabled]="busy() || data.page * data.pageSize >= data.total"
+            (click)="load(data.page + 1, data.table)"
+          >
+            Next
+          </button>
+        </div>
+      }
+    }
+  } @else if (list(); as data) {
+    <div class="panel-heading">
+      <div>
+        <h2>Inpatient encounters</h2>
+        <p>
+          {{ data.total | number }} admissions ·
+          {{ data.patients | number }} patients ·
+          {{ data.facilities | number }} facilities
+        </p>
+      </div>
+    </div>
+    @if (data.items.length) {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Patient</th>
+              <th scope="col">Facility</th>
+              <th scope="col">Admitted (UTC)</th>
+              <th scope="col">Discharged (UTC)</th>
+              <th scope="col">Reason for admission</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of data.items; track item.encounterId) {
+              <tr>
+                <td>
+                  <button class="text-link" type="button" (click)="open(item)">
+                    {{ item.patientName }}
+                  </button>
+                </td>
+                <td>{{ item.facilityName }}</td>
+                <td>{{ item.admittedAt | date: "MMM d, y, HH:mm" : "UTC" }}</td>
+                <td>
+                  {{
+                    item.dischargedAt
+                      ? (item.dischargedAt | date: "MMM d, y, HH:mm" : "UTC")
+                      : "Not recorded"
+                  }}
+                </td>
+                <td>
+                  {{ item.reason || "Not recorded"
+                  }}<small class="cell-sub">{{ item.description }}</small>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (data.total > data.pageSize) {
+        <div class="admin-pagination">
+          <button
+            class="btn btn-outline"
+            type="button"
+            [disabled]="busy() || data.page <= 1"
+            (click)="load(data.page - 1)"
+          >
+            Previous
+          </button>
+          <span
+            >Page {{ data.page }} of
+            {{ pageCount(data.total, data.pageSize) }}</span
+          >
+          <button
+            class="btn btn-outline"
+            type="button"
+            [disabled]="busy() || data.page * data.pageSize >= data.total"
+            (click)="load(data.page + 1)"
+          >
+            Next
+          </button>
+        </div>
+      }
+    } @else {
+      <p class="state">
+        No Synthea inpatient admissions have been imported for this
+        organization.
+      </p>
+    }
+  }
+  @if (busy()) {
+    <p class="state" role="status">Loading records…</p>
+  }
+  @if (error()) {
+    <div class="error-banner" role="alert">
+      {{ error() }}
+      <button class="btn btn-outline" type="button" (click)="retry()">
+        Retry
+      </button>
+    </div>
+  }
+</section>

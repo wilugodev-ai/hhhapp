@@ -24,6 +24,8 @@ The application now includes a public landing page, sign-in, an interactive exec
 
 The hosted application is available at **https://hhh-j2uk5d5lkq-uc.a.run.app** on Google Cloud Run with a dedicated Neon database. Existing administrator credentials work there. The original administrator, organization configuration, and 10,046 records were transferred and verified. Local data was retained unchanged; reference fixtures introduced during testing were excluded from the hosted export. See the [deployment and operations guide](deploy/cloud-run/README.md).
 
+The hosted Ablest workspace includes 412,443 records from 18 Synthea files. **Healthcare files** provides searchable claims, transactions, prescriptions, coverage periods and clinical records. **Admissions** links 172 inpatient stays to their source records and FHIR R4 encounters. [Open hosted healthcare files](https://hhh-j2uk5d5lkq-uc.a.run.app/app/healthcare-files)
+
 The Angular interface supports light and dark mode, mobile navigation, payer drilldown, and filters for effective month, report month, year, payer, center, provider, contract, plan, line of business, and region. Settings includes personal appearance controls with preset backgrounds, a custom tint, previews, and reset. An optional starter dataset adds 21 months of fictional financials and independent budgets to the administrator's own organization. Starter financials do not create user accounts or include real member records.
 
 The first Phase 2 increment adds monthly, quarterly, and yearly P&L statements, persistent approved budget plans, favorable/unfavorable variance, matched prior-year and previous-period comparisons, component drilldowns, paginated cohort lineage, and a P&L CSV export. Payer and center filters preserve the P&L reporting period.
@@ -41,6 +43,8 @@ Fresh installations have a `/setup` screen where the first administrator supplie
 Reference-only demo accounts remain available through an explicit optional mode; they are separate from the normal prototype installation and its users.
 
 ## Run locally
+
+HHH includes Synthea's 18-file clinical sample and an organization-scoped **Admissions** page. Each inpatient stay links to its clinical and claims records and can be opened as FHIR R4 JSON. [Synthea dataset and import command](data/synthea/README.md)
 
 Prerequisites: .NET 10 SDK, Node.js 24.15 or later in the Node 24 release line, and SQL Server 2019 or later. The prototype uses Windows authentication to .\SQLEXPRESS01 and the dedicated HhhLocal database. Override ConnectionStrings__Hhh for another instance. Use an account that can create this application database and apply migrations.
 

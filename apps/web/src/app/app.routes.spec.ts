@@ -36,6 +36,17 @@ async function render(signedIn = true) {
       years: [],
     })),
     batches: vi.fn(async () => []),
+    admissions: vi.fn(async () => ({ total: 0, patients: 0, facilities: 0, page: 1, pageSize: 20, items: [] })),
+    healthcareFiles: vi.fn(async () => [
+      { name: "claims", count: 1 }, { name: "claims_transactions", count: 1 },
+      { name: "medications", count: 1 }, { name: "payer_transitions", count: 1 },
+    ]),
+    healthcareFile: vi.fn(async (table: string, page: number, _column: string, _q: string) => ({
+      table, page, total: 1, pageSize: 20, names: { p1: "Sample Patient", ins: "Sample payer" },
+      ...(table === "payer_transitions" ? { columns: ["PATIENT", "PAYER", "MEMBERID"], rows: [["p1","ins","member-001"]] }
+        : table === "claims" ? { columns: ["Id", "PATIENTID"], rows: [["claim-001","p1"]] }
+        : { columns: ["CLAIMID", "TYPE"], rows: [["claim-001","PAYMENT"]] }),
+    })),
     dashboard: vi.fn(async () => null),
   };
   await TestBed.configureTestingModule({
@@ -50,6 +61,31 @@ afterEach(() => {
   document.documentElement.classList.remove("dark");
 });
 describe("Session-aware home navigation", () => {
+  it("opens membership coverage directly and links claims to their transactions", async () => {
+    const { api, harness, router } = await render();
+    await harness.navigateByUrl("/app/healthcare-files?file=payer_transitions", WorkspaceComponent);
+    await harness.fixture.whenStable();
+    expect(harness.routeNativeElement?.textContent).toContain("Sample payer");
+    expect(harness.routeNativeElement?.textContent).toContain("member-001");
+    expect(api.dashboard).not.toHaveBeenCalled();
+    await harness.navigateByUrl("/app/healthcare-files?file=claims", WorkspaceComponent);
+    await harness.fixture.whenStable();
+    const claim = harness.routeNativeElement!.querySelector<HTMLAnchorElement>(".file-table a")!;
+    claim.click();
+    await vi.waitFor(() => expect(router.url).toContain("file=claims_transactions"));
+    await harness.fixture.whenStable();
+    expect(api.healthcareFile).toHaveBeenCalledWith("claims_transactions", 1, "CLAIMID", "claim-001");
+    expect(harness.routeNativeElement?.textContent).toContain("PAYMENT");
+  });
+  it("opens admissions independently and loads financial data when returning to overview", async () => {
+    const { api, harness } = await render();
+    await harness.navigateByUrl("/app/admissions", WorkspaceComponent);
+    await vi.waitFor(() => expect(api.admissions).toHaveBeenCalledWith(1));
+    expect(api.metadata).not.toHaveBeenCalled();
+    expect(api.dashboard).not.toHaveBeenCalled();
+    await harness.navigateByUrl("/app/overview", WorkspaceComponent);
+    await vi.waitFor(() => expect(api.dashboard).toHaveBeenCalled());
+  });
   it("opens data quality without requiring financial records or loading the financial dashboard", async () => {
     const { api, harness, router } = await render();
     await harness.navigateByUrl("/app/data", WorkspaceComponent);

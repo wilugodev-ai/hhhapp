@@ -6,6 +6,8 @@ import {
 } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { Batch, Dashboard, Filters, Metadata, User } from "./models";
+import { AdmissionPage, AdmissionRecords } from "./admissions.models";
+import { HealthcareFilePage, SourceFile } from "./healthcare-files.models";
 import { ProfitLossDetails, ProfitLossReport } from "./profit-loss.models";
 import { MlrConfiguration, MlrReport } from "./mlr.models";
 import {
@@ -107,6 +109,22 @@ export class ApiService {
   }
   batches() {
     return firstValueFrom(this.http.get<Batch[]>("/api/data/batches"));
+  }
+  admissions(page: number) {
+    return firstValueFrom(this.http.get<AdmissionPage>("/api/admissions", { params: { page } }));
+  }
+  healthcareFiles() {
+    return firstValueFrom(this.http.get<SourceFile[]>("/api/data/synthea/files"));
+  }
+  healthcareFile(table: string, page: number, column: string, q: string) {
+    return firstValueFrom(this.http.get<HealthcareFilePage>(`/api/data/synthea/files/${encodeURIComponent(table)}`, {
+      params: q ? { page, column, q } : { page },
+    }));
+  }
+  admissionRecords(encounterId: string, page: number, table?: string) {
+    return firstValueFrom(this.http.get<AdmissionRecords>(`/api/admissions/${encounterId}/records`, {
+      params: table ? { page, table } : { page },
+    }));
   }
   adminOrganizations() {
     return firstValueFrom(

@@ -44,6 +44,7 @@ export function monthlyCoverage(months: string[]) {
             Financial report filters do not restrict these checks.
           </p>
         </div>
+        <a class="text-link" routerLink="/app/healthcare-files">Browse Synthea healthcare files</a>
         <button
           class="btn btn-outline"
           type="button"

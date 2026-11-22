@@ -14,6 +14,11 @@ All `/api` responses are non-cacheable. Authentication uses an HttpOnly session 
 | GET | `/api/auth/me` | Current user, organization, role, MLR target |
 | POST | `/api/auth/logout` | End the browser session |
 | GET | `/api/analytics/filters` | Authorized dimensions and available periods |
+| GET | `/api/admissions?page=1` | Inpatient stays and distinct patient and facility counts for the signed-in organization |
+| GET | `/api/admissions/{id}/records?table=observations&page=1` | Source files linked to the stay and paginated CSV fields from the selected file |
+| GET | `/api/admissions/{id}/fhir` | Synthetic inpatient Encounter in FHIR R4 JSON |
+| GET | `/api/data/synthea/files` | Available Synthea files and row counts for the signed-in organization |
+| GET | `/api/data/synthea/files/{table}?page=1&column=DESCRIPTION&q=aspirin` | Paginated CSV rows, source columns and referenced patient or payer names. The optional search matches text within the selected column. |
 | GET | `/api/analytics/dashboard` | Metrics, comparisons, trends, P&L components, and payer/center/provider groups |
 | GET | `/api/analytics/mlr` | Weighted MLR windows, group targets, alerts, trends, and reconciled contributions |
 | GET | `/api/mlr/configuration` | Active definition, authorized category catalogs, organization target, and overrides |

@@ -15,6 +15,8 @@ export const workspaceNavigation: NavigationItem[] = [
   { id: "payers", label: "Payer Performance", icon: "building" },
   { id: "centers", label: "Medical Centers", icon: "building" },
   { id: "membership", label: "Membership", icon: "users" },
+  { id: "admissions", label: "Admissions", icon: "heart" },
+  { id: "healthcare-files", label: "Healthcare files", icon: "database" },
   {
     id: "forecast",
     label: "Financial Forecast",

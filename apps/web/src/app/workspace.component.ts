@@ -3,7 +3,6 @@ import {
   computed,
   ElementRef,
   inject,
-  OnInit,
   signal,
   viewChild,
 } from "@angular/core";
@@ -24,6 +23,8 @@ import { MainNavigationComponent } from "./main-navigation.component";
 import { NavigationService, workspaceNavigation } from "./navigation.service";
 import { FinancialHealthComponent } from "./financial-health.component";
 import { DataQualityComponent } from "./data-quality.component";
+import { AdmissionsComponent } from "./admissions.component";
+import { HealthcareFilesComponent } from "./healthcare-files.component";
 import { Dashboard, Filters, Group, Metadata, Metrics } from "./models";
 
 @Component({
@@ -42,6 +43,8 @@ import { Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     MainNavigationComponent,
     FinancialHealthComponent,
     DataQualityComponent,
+    AdmissionsComponent,
+    HealthcareFilesComponent,
   ],
   templateUrl: "./workspace.component.html",
   host: {
@@ -49,7 +52,7 @@ import { Dashboard, Filters, Group, Metadata, Metrics } from "./models";
     "(document:keydown.escape)": "onAccountMenuEscape($event)",
   },
 })
-export class WorkspaceComponent implements OnInit {
+export class WorkspaceComponent {
   api = inject(ApiService);
   appearance = inject(AppearanceService);
   navigation = inject(NavigationService);
@@ -78,6 +81,7 @@ export class WorkspaceComponent implements OnInit {
   private accountMenuTrigger =
     viewChild<ElementRef<HTMLButtonElement>>("accountMenuTrigger");
   section = signal("overview");
+  readonly clinicalSection = computed(() => ["admissions", "healthcare-files"].includes(this.section()));
   collapsed = this.navigation.collapsed;
   mobileMenu = this.navigation.mobileOpen;
   advanced = signal(false);
@@ -240,24 +244,28 @@ export class WorkspaceComponent implements OnInit {
       this.search.set("");
       this.mobileMenu.set(false);
       this.notice.set("");
-      if (this.metadata()) void this.load();
+      void this.enterSection();
     });
   }
-  async ngOnInit() {
+  async enterSection() {
+    if (this.clinicalSection() || this.metadata()) return this.load();
+    const request = ++this.requestId;
     try {
       const metadata = await this.api.metadata();
+      if (request !== this.requestId) return;
       this.metadata.set(metadata);
       this.filters.month = metadata.months[0] || "";
       this.target = this.api.user()?.mlrTarget ?? 85;
       await this.load();
     } catch (e) {
+      if (request !== this.requestId) return;
       this.error.set(errorMessage(e));
       this.loading.set(false);
     }
   }
   async load() {
     const request = ++this.requestId;
-    if (this.section() === "administration" || this.section() === "data") {
+    if (this.clinicalSection() || ["administration", "data"].includes(this.section())) {
       this.loading.set(false);
       this.error.set("");
       return;
