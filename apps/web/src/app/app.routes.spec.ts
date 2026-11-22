@@ -59,8 +59,29 @@ async function render(signedIn = true) {
 afterEach(() => {
   TestBed.resetTestingModule();
   document.documentElement.classList.remove("dark");
+  localStorage.clear();
 });
 describe("Session-aware home navigation", () => {
+  it.each(["dark", "light"])(
+    "restores the saved %s theme on Home and follows the workspace theme switch",
+    async (theme) => {
+      localStorage.setItem("hhh-theme", theme);
+      const isDark = () => document.documentElement.classList.contains("dark");
+      const { harness } = await render();
+      await harness.navigateByUrl("/", LandingComponent);
+      expect(isDark()).toBe(theme === "dark");
+
+      await harness.navigateByUrl("/app/overview", WorkspaceComponent);
+      const next = theme === "dark" ? "light" : "dark";
+      harness.routeNativeElement!.querySelector<HTMLButtonElement>(
+        `button[aria-label="Switch to ${next} mode"]`,
+      )!
+        .click();
+      await harness.navigateByUrl("/", LandingComponent);
+      expect(isDark()).toBe(next === "dark");
+      expect(localStorage.getItem("hhh-theme")).toBe(next);
+    },
+  );
   it("opens membership coverage directly and links claims to their transactions", async () => {
     const { api, harness, router } = await render();
     await harness.navigateByUrl("/app/healthcare-files?file=payer_transitions", WorkspaceComponent);

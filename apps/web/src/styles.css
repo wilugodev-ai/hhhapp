@@ -1455,15 +1455,31 @@ th.numeric {
 }
 /* Public experience */
 .landing {
+  --landing-canvas: var(--surface);
+  --landing-band: #f6f9fb;
+  --landing-glow-mint: #e3f8f3;
+  --landing-glow-blue: #edf3fd;
+  --landing-eyebrow: #518b89;
   container-type: inline-size;
-  background: #fff;
-  color: #142a43;
+  background: var(--landing-canvas);
+  color: var(--ink);
+}
+.dark .landing {
+  color-scheme: dark;
+  --landing-canvas: var(--bg);
+  --landing-band: #0e2135;
+  --landing-glow-mint: #10403f;
+  --landing-glow-blue: #16334e;
+  --landing-eyebrow: #8bcac2;
+  --landing-copy: #b2c4d5;
+  --landing-caption: #9eb2c6;
+  --teal: #68d7c1;
 }
 .landing-nav {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: #fff;
+  background: var(--landing-canvas);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1499,7 +1515,7 @@ th.numeric {
   gap: 34px;
   align-items: center;
   font-size: 12px;
-  color: #6a7b8e;
+  color: var(--landing-copy, #6a7b8e);
 }
 .landing-links .btn {
   font-size: 11px;
@@ -1515,7 +1531,7 @@ th.numeric {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #142a43;
+  color: var(--ink);
 }
 @media (max-width: 1000px) {
   .landing-session {
@@ -1536,7 +1552,7 @@ th.numeric {
 }
 .hero .eyebrow {
   font-size: 9px;
-  color: #518b89;
+  color: var(--landing-eyebrow);
   letter-spacing: 1.6px;
 }
 .hero h1 {
@@ -1548,11 +1564,11 @@ th.numeric {
 }
 .hero h1 em {
   font-style: normal;
-  color: #00a796;
+  color: var(--teal);
 }
 .hero-copy > p {
   font-size: 14px;
-  color: #7a8796;
+  color: var(--landing-copy, #7a8796);
   line-height: 1.9;
   max-width: 440px;
 }
@@ -1566,11 +1582,19 @@ th.numeric {
   padding: 14px 19px;
   font-size: 11px;
 }
+.dark .hero-actions .btn-primary {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--bg);
+}
+.dark .hero-actions .btn-primary:hover {
+  background: #86e5d2;
+}
 .hero-proof {
   display: flex;
   gap: 20px;
   font-size: 9px;
-  color: #8895a3;
+  color: var(--landing-caption, #8895a3);
 }
 .hero-proof > span {
   display: flex;
@@ -1580,7 +1604,7 @@ th.numeric {
 .hero-proof hhh-icon {
   width: 12px;
   height: 12px;
-  color: #00a999;
+  color: var(--teal);
 }
 .hero-visual {
   position: relative;
@@ -1598,21 +1622,21 @@ th.numeric {
   height: 430px;
   top: -70px;
   right: -85px;
-  background: radial-gradient(circle, #e3f8f3, transparent 70%);
+  background: radial-gradient(circle, var(--landing-glow-mint), transparent 70%);
 }
 .orb-two {
   width: 400px;
   height: 400px;
   bottom: -80px;
   left: -100px;
-  background: radial-gradient(circle, #edf3fd, transparent 70%);
+  background: radial-gradient(circle, var(--landing-glow-blue), transparent 70%);
 }
 .preview-window {
   position: relative;
   z-index: 1;
-  border: 1px solid #e5edf1;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 25px 60px #143c5510;
   transform: perspective(1400px) rotateY(-5deg) rotateX(2deg);
 }
@@ -1621,20 +1645,20 @@ th.numeric {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #edf1f5;
+  border-bottom: 1px solid var(--line);
   font-size: 7px;
   letter-spacing: 1.6px;
-  color: #95a3b2;
+  color: var(--landing-caption, #95a3b2);
 }
 .preview-top .preview-dots {
   font-size: 8px;
   letter-spacing: 4px;
-  color: #d2dde6;
+  color: var(--landing-caption, #d2dde6);
 }
 .preview-top > hhh-icon {
   width: 15px;
   height: 15px;
-  color: #00a999;
+  color: var(--teal);
 }
 .preview-body {
   padding: 27px 27px 22px;
@@ -1654,7 +1678,7 @@ th.numeric {
   grid-template-columns: 1fr 1fr;
 }
 .preview-stats small {
-  color: #8c9aa8;
+  color: var(--landing-caption, #8c9aa8);
   font-size: 9px;
 }
 .preview-stats strong {
@@ -1665,15 +1689,15 @@ th.numeric {
   margin: 6px 0;
 }
 .preview-stats > div:last-child {
-  border-left: 1px solid #edf1f5;
+  border-left: 1px solid var(--line);
   padding-left: 30px;
 }
 .preview-stats > div:last-child strong {
-  color: #00a999;
+  color: var(--teal);
 }
 .preview-stats span {
   font-size: 8px;
-  color: #a5aeb8;
+  color: var(--landing-caption, #a5aeb8);
 }
 .hero-chart {
   display: block;
@@ -1684,7 +1708,7 @@ th.numeric {
 .preview-months {
   display: flex;
   justify-content: space-between;
-  color: #9ba8b5;
+  color: var(--landing-caption, #9ba8b5);
   font-size: 6px;
   letter-spacing: 1px;
   margin-top: 5px;
@@ -1695,8 +1719,8 @@ th.numeric {
   display: flex;
   align-items: center;
   gap: 13px;
-  background: #fff;
-  border: 1px solid #e7efee;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 9px;
   padding: 16px 21px;
   width: max-content;
@@ -1711,17 +1735,17 @@ th.numeric {
 }
 .floating-note small {
   font-size: 8px;
-  color: #9aa5b0;
+  color: var(--landing-caption, #9aa5b0);
 }
 .illustration-note {
   text-align: right;
   font-size: 8px;
-  color: #b5bdc6;
+  color: var(--landing-caption, #b5bdc6);
   margin: 13px 3px 0;
 }
 .value-section {
-  background: #f6f9fb;
-  border-top: 1px solid #ecf1f5;
+  background: var(--landing-band);
+  border-top: 1px solid var(--line);
   padding: 70px 45px 80px;
 }
 .section-heading {
@@ -1737,7 +1761,7 @@ th.numeric {
 }
 .section-heading p {
   font-size: 12px;
-  color: #8b98a7;
+  color: var(--landing-copy, #8b98a7);
 }
 .value-grid {
   max-width: 1190px;
@@ -1748,8 +1772,8 @@ th.numeric {
 }
 .value-grid article {
   padding: 26px;
-  background: #fff;
-  border: 1px solid #e7eef3;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 .value-icon {
@@ -1774,7 +1798,7 @@ th.numeric {
 }
 .value-grid p {
   font-size: 11px;
-  color: #8a96a4;
+  color: var(--landing-copy, #8a96a4);
   line-height: 1.9;
   margin: 0;
 }
@@ -1795,31 +1819,31 @@ th.numeric {
 }
 .approach p {
   font-size: 13px;
-  color: #8995a3;
+  color: var(--landing-copy, #8995a3);
   line-height: 1.9;
   margin: 0 0 17px;
 }
 .approach small {
   display: block;
   font-size: 9px;
-  color: #a0aab6;
+  color: var(--landing-caption, #a0aab6);
   margin-top: 16px;
 }
 .landing footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #edf1f5;
+  border-top: 1px solid var(--line);
   padding: 25px 45px;
   font-size: 9px;
-  color: #9ba8b7;
+  color: var(--landing-caption, #9ba8b7);
   gap: 20px;
 }
 .landing footer a {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #00a999;
+  color: var(--teal);
 }
 .landing footer hhh-icon {
   width: 13px;

@@ -1,6 +1,7 @@
 import { Component, computed, inject } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { ApiService } from "./api.service";
+import { AppearanceService } from "./appearance.service";
 import { IconComponent } from "./icon.component";
 import { MainNavigationComponent } from "./main-navigation.component";
 import { NavigationService } from "./navigation.service";
@@ -124,13 +125,17 @@ import { NavigationService } from "./navigation.service";
                 >
                   <defs>
                     <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop stop-color="#00b8a9" stop-opacity=".25" />
-                      <stop offset="1" stop-color="#00b8a9" stop-opacity="0" />
+                      <stop stop-color="var(--teal)" stop-opacity=".25" />
+                      <stop
+                        offset="1"
+                        stop-color="var(--teal)"
+                        stop-opacity="0"
+                      />
                     </linearGradient>
                   </defs>
                   <path
                     d="M0 40H500M0 90H500M0 140H500"
-                    stroke="#e5edf4"
+                    stroke="var(--line)"
                     stroke-dasharray="4 5"
                   />
                   <path
@@ -140,7 +145,7 @@ import { NavigationService } from "./navigation.service";
                   <path
                     d="M0 150 Q25 145 45 130T90 125T140 105T190 110T235 80T280 83T330 55T380 60T425 30T470 22L500 12"
                     fill="none"
-                    stroke="#00a999"
+                    stroke="var(--teal)"
                     stroke-width="3"
                   />
                   <path
@@ -229,7 +234,7 @@ export class LandingComponent {
         : "/login",
   );
   constructor() {
-    document.documentElement.classList.remove("dark");
+    inject(AppearanceService).applyTheme();
     this.navigation.mobileOpen.set(false);
   }
   year = 2026;
